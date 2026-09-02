@@ -604,30 +604,206 @@ function setupPlacemarks() {
             });
         });
     }
-    
-    if (btnPhoto && photoInput) {
-        btnPhoto.addEventListener('click', () => {
+
+    // In-App Continuous Burst Camera & Gallery Selector
+    const btnOpenCamera = document.getElementById('btn-open-camera');
+    const btnPickGallery = document.getElementById('btn-pick-gallery');
+    const modalCamera = document.getElementById('modal-camera');
+    const cameraVideo = document.getElementById('camera-video');
+    const btnShutter = document.getElementById('btn-shutter');
+    const btnCameraDone = document.getElementById('btn-camera-done');
+    const btnCloseCamera = document.getElementById('btn-close-camera');
+    const cameraFlash = document.getElementById('camera-flash');
+    const cameraCountNum = document.getElementById('camera-count-num');
+    const cameraHeadingVal = document.getElementById('camera-heading-val');
+    let cameraStream = null;
+    let cameraCompassInterval = null;
+
+    async function startInAppCamera() {
+        if (!modalCamera || !cameraVideo) return;
+        try {
+            const constraints = {
+                video: {
+                    facingMode: { ideal: 'environment' },
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                },
+                audio: false
+            };
+
+            cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+            cameraVideo.srcObject = cameraStream;
+            await cameraVideo.play();
+
+            modalCamera.classList.remove('hidden');
+            if (cameraCountNum) cameraCountNum.textContent = currentPhotos.length;
+
+            if (cameraCompassInterval) clearInterval(cameraCompassInterval);
+            cameraCompassInterval = setInterval(() => {
+                const h = (state.gps && state.gps.getHeading) ? state.gps.getHeading() : null;
+                if (cameraHeadingVal) {
+                    if (h !== null && !isNaN(h)) {
+                        cameraHeadingVal.textContent = `${Math.round(h).toString().padStart(3, '0')}° ${GPSTracker.headingToCardinal(h)}`;
+                    } else {
+                        cameraHeadingVal.textContent = '000° N';
+                    }
+                }
+            }, 200);
+
+        } catch (err) {
+            console.warn('Cámara interna no disponible, usando selector de archivos:', err);
+            showToast('Abriendo selector de fotos...');
+            if (photoInput) photoInput.click();
+        }
+    }
+
+    function stopInAppCamera() {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(t => t.stop());
+            cameraStream = null;
+        }
+        if (cameraCompassInterval) {
+            clearInterval(cameraCompassInterval);
+            cameraCompassInterval = null;
+        }
+        if (modalCamera) modalCamera.classList.add('hidden');
+        renderPhotosGrid();
+    }
+
+    async function captureCameraFrame() {
+        if (!cameraVideo || !cameraStream) return;
+
+        // Visual flash
+        if (cameraFlash) {
+            cameraFlash.style.opacity = '0.9';
+            setTimeout(() => { cameraFlash.style.opacity = '0'; }, 100);
+        }
+
+        if (navigator.vibrate) {
+            try { navigator.vibrate(50); } catch(e) {}
+        }
+
+        const videoW = cameraVideo.videoWidth || 1280;
+        const videoH = cameraVideo.videoHeight || 720;
+
+        const offscreenCanvas = document.createElement('canvas');
+        offscreenCanvas.width = videoW;
+        offscreenCanvas.height = videoH;
+        const ctx = offscreenCanvas.getContext('2d');
+        ctx.drawImage(cameraVideo, 0, 0, videoW, videoH);
+
+        // Technical Watermark Stamping
+        const stampToggle = document.getElementById('pm-stamp-toggle');
+        const isStampEnabled = stampToggle ? stampToggle.checked : true;
+        const projectName = state.currentProjectName || 'CampoMaps';
+
+        let targetLat = null, targetLng = null, targetAlt = null, targetAcc = null;
+        if (state.gps && state.gps.currentPosition) {
+            targetLat = state.gps.currentPosition.lat;
+            targetLng = state.gps.currentPosition.lng;
+            targetAlt = state.gps.currentPosition.altitude;
+            targetAcc = state.gps.currentPosition.accuracy;
+        } else if (state.mapEngine) {
+            const center = state.mapEngine.getCenter();
+            targetLat = center.lat;
+            targetLng = center.lng;
+        }
+
+        const currentHeading = (state.gps && state.gps.getHeading) ? state.gps.getHeading() : null;
+        const cardinal = currentHeading !== null ? GPSTracker.headingToCardinal(currentHeading) : '';
+        const defaultHeadingLabel = currentHeading !== null 
+            ? `${Math.round(currentHeading).toString().padStart(3, '0')}° ${cardinal}`
+            : '';
+
+        if (isStampEnabled && targetLat && targetLng) {
+            const bannerH = Math.max(70, Math.round(videoH * 0.11));
+            const bannerY = videoH - bannerH;
+
+            // Draw dark background banner
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+            ctx.fillRect(0, bannerY, videoW, bannerH);
+
+            // Accent border
+            ctx.fillStyle = '#2ecc71';
+            ctx.fillRect(0, bannerY, videoW, Math.max(3, Math.round(bannerH * 0.04)));
+
+            const fontSize = Math.max(12, Math.round(bannerH * 0.22));
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.textBaseline = 'middle';
+
+            const d = new Date();
+            const dateStr = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`;
+
+            // Line 1: Project, Date, Heading
+            ctx.fillStyle = '#ffffff';
+            let line1 = `PROYECTO: ${projectName.toUpperCase()} | 📅 ${dateStr}`;
+            if (currentHeading !== null) {
+                line1 += ` | 🧭 Sentido: ${defaultHeadingLabel}`;
+            }
+            ctx.fillText(line1, 15, bannerY + bannerH * 0.28);
+
+            // Line 2: MAGNA-SIRGAS Coordinates
+            const magna = toMagnaSirgas(targetLat, targetLng);
+            ctx.fillStyle = '#2ecc71';
+            const line2 = `MAGNA Origen Nal. (EPSG:9377): N: ${magna.northing.toLocaleString('es-CO', {maximumFractionDigits:2})} m | E: ${magna.easting.toLocaleString('es-CO', {maximumFractionDigits:2})} m`;
+            ctx.fillText(line2, 15, bannerY + bannerH * 0.58);
+
+            // Line 3: WGS84 + Precision
+            ctx.fillStyle = '#e0e0e0';
+            let line3 = `WGS84: ${targetLat.toFixed(6)}°, ${targetLng.toFixed(6)}°`;
+            if (targetAlt) line3 += ` | ⛰️ Alt: ${Math.round(targetAlt)}m`;
+            if (targetAcc) line3 += ` | 🎯 Prec: ±${Math.round(targetAcc)}m`;
+            ctx.fillText(line3, 15, bannerY + bannerH * 0.85);
+        }
+
+        const dataUrl = offscreenCanvas.toDataURL('image/jpeg', 0.82);
+        currentPhotos.push({
+            url: dataUrl,
+            heading: currentHeading,
+            headingLabel: defaultHeadingLabel
+        });
+
+        if (cameraCountNum) {
+            cameraCountNum.textContent = currentPhotos.length;
+        }
+        showToast(`📸 Foto #${currentPhotos.length} capturada (${defaultHeadingLabel || 'orientada'})`);
+    }
+
+    if (btnOpenCamera) {
+        btnOpenCamera.addEventListener('click', startInAppCamera);
+    }
+    if (btnShutter) {
+        btnShutter.addEventListener('click', captureCameraFrame);
+    }
+    if (btnCameraDone) {
+        btnCameraDone.addEventListener('click', () => {
+            stopInAppCamera();
+            showToast(`✅ ${currentPhotos.length} foto(s) adjuntadas`);
+        });
+    }
+    if (btnCloseCamera) {
+        btnCloseCamera.addEventListener('click', stopInAppCamera);
+    }
+
+    // Gallery Picker button (Multiple photos at once)
+    if (btnPickGallery && photoInput) {
+        btnPickGallery.addEventListener('click', () => {
             photoInput.click();
         });
-        
+    }
+    
+    if (photoInput) {
         photoInput.addEventListener('change', async (e) => {
             const files = Array.from(e.target.files || []);
             if (files.length > 0) {
                 try {
                     showToast(`Procesando ${files.length} foto(s)...`);
 
-                    // Check if stamping is enabled
                     const stampToggle = document.getElementById('pm-stamp-toggle');
                     const isStampEnabled = stampToggle ? stampToggle.checked : true;
-                    const projectNameInput = document.getElementById('input-project-name');
-                    const projectName = projectNameInput ? projectNameInput.value.trim() : 'CampoMaps';
+                    const projectName = state.currentProjectName || 'CampoMaps';
 
-                    // Determine target coordinates for watermark
-                    let targetLat = null;
-                    let targetLng = null;
-                    let targetAlt = null;
-                    let targetAcc = null;
-
+                    let targetLat = null, targetLng = null, targetAlt = null, targetAcc = null;
                     if (state.gps && state.gps.currentPosition) {
                         targetLat = state.gps.currentPosition.lat;
                         targetLng = state.gps.currentPosition.lng;
@@ -639,7 +815,6 @@ function setupPlacemarks() {
                         targetLng = center.lng;
                     }
 
-                    // Get compass heading from GPS/orientation sensor
                     const currentHeading = (state.gps && state.gps.getHeading) ? state.gps.getHeading() : null;
                     const cardinal = currentHeading !== null ? GPSTracker.headingToCardinal(currentHeading) : '';
                     const defaultHeadingLabel = currentHeading !== null 
@@ -667,7 +842,7 @@ function setupPlacemarks() {
                         });
                     }
                     renderPhotosGrid();
-                    showToast(`📷 ${currentPhotos.length} foto(s) adjunta(s) ${defaultHeadingLabel ? `(🧭 ${defaultHeadingLabel})` : ''}`);
+                    showToast(`📷 ${currentPhotos.length} foto(s) adjunta(s)`);
                 } catch (err) {
                     console.error("Error al leer fotos:", err);
                     showToast("⚠️ Error al procesar fotos");
@@ -1383,11 +1558,14 @@ function setupMapControls() {
         });
     }
 
-    // Layer switcher toggle (Satélite Google vs Callejero OSM vs Topográfico)
+    // Layer switcher toggle (Satélite Híbrido vs Esri Satélite vs Callejero OSM vs Topográfico)
     if (btnLayers) {
         btnLayers.addEventListener('click', () => {
             const current = state.mapEngine.baseLayerType || 'satellite';
-            if (current === 'satellite') {
+            if (current === 'satellite' || current === 'hybrid') {
+                state.mapEngine.setBaseLayer('esri');
+                showToast('🌍 Satélite Esri (Fotografía satelital pura)');
+            } else if (current === 'esri') {
                 state.mapEngine.setBaseLayer('osm');
                 showToast('🗺️ Mapa Callejero (OpenStreetMap)');
             } else if (current === 'osm') {
@@ -1395,7 +1573,7 @@ function setupMapControls() {
                 showToast('⛰️ Mapa Topográfico (Curvas de nivel)');
             } else {
                 state.mapEngine.setBaseLayer('satellite');
-                showToast('🛰️ Vista Satelital (Google)');
+                showToast('🛰️ Google Híbrido (Satélite + Vías y Nombres)');
             }
         });
     }

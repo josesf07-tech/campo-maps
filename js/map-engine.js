@@ -30,10 +30,20 @@ export class MapEngine {
             this.map.removeLayer(this.currentBaseLayer);
         }
         this.baseLayerType = type;
-        if (type === 'satellite') {
-            this.currentBaseLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-                attribution: '© Google Satélite',
-                maxZoom: 20
+        if (type === 'satellite' || type === 'hybrid') {
+            // Google Hybrid (Satélite + Vías y Nombres) - Máxima legibilidad y detalle
+            this.currentBaseLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                subdomains: ['0', '1', '2', '3'],
+                attribution: '© Google Satélite Híbrido',
+                maxZoom: 22,
+                maxNativeZoom: 19
+            }).addTo(this.map);
+        } else if (type === 'esri') {
+            // Esri World Imagery (Fotografía satelital de alta resolución)
+            this.currentBaseLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '© Esri World Imagery',
+                maxZoom: 20,
+                maxNativeZoom: 18
             }).addTo(this.map);
         } else if (type === 'topo') {
             this.currentBaseLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {

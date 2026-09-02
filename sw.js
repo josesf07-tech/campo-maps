@@ -7,7 +7,7 @@
  * offline fallbacks, and cache management messaging.
  */
 
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v11';
 const APP_CACHE_NAME = `campo-maps-${CACHE_VERSION}`;
 const TILE_CACHE_NAME = `campo-maps-tiles-${CACHE_VERSION}`;
 const MAX_TILES = 5000;
@@ -341,8 +341,12 @@ function isTileRequest(request, url) {
   return (
     url.hostname.includes('tile.openstreetmap.org') ||
     url.hostname.includes('tile.opentopomap.org') ||
+    url.hostname.includes('arcgisonline.com') ||
+    url.hostname.includes('google.com') ||
     url.hostname.includes('cartocdn.com') ||
     url.hostname.includes('tile.stamen.com') ||
+    url.pathname.includes('/vt') ||
+    url.pathname.includes('/MapServer/tile') ||
     /\/\d+\/\d+\/\d+(\.png|\.jpg|\.jpeg|\.webp)?(\?.*)?$/i.test(url.pathname)
   );
 }

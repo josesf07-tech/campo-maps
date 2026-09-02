@@ -981,7 +981,13 @@ function setupPlacemarks() {
                     censoArrow.style.background = '#27ae60';
                 }
                 setTimeout(() => {
-                    censoFormBody.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    const modalBody = toggleCensoHeader.closest('.modal-body');
+                    if (modalBody) {
+                        modalBody.scrollTo({
+                            top: toggleCensoHeader.offsetTop - 15,
+                            behavior: 'smooth'
+                        });
+                    }
                 }, 100);
             } else {
                 censoFormBody.classList.add('hidden');

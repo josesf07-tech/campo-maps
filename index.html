@@ -42,7 +42,7 @@
         if ('caches' in window) {
             caches.keys().then(keys => {
                 keys.forEach(k => {
-                    if (k.startsWith('campo-maps-') && !k.includes('-v18')) {
+                    if (k.startsWith('campo-maps-') && !k.includes('-v19')) {
                         console.log('Purging outdated cache:', k);
                         caches.delete(k);
                     }
@@ -52,7 +52,7 @@
     </script>
 
     <!-- App CSS -->
-    <link rel="stylesheet" href="css/style.css?v=18">
+    <link rel="stylesheet" href="css/style.css?v=19">
 </head>
 <body>
 
@@ -315,8 +315,9 @@
                     <h2>Guardar Marcador</h2>
                     <button class="btn-close-modal"><svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                 </header>
-                <div class="modal-body form-group">
-                    <!-- Live Coordinates & Precision Badge -->
+                <div class="modal-body">
+                    <div class="form-group" style="padding-bottom: 30px;">
+                        <!-- Live Coordinates & Precision Badge -->
                     <div id="pm-coord-status-box" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px;">
                         <div>
                             <div id="pm-status-magna" style="font-size: 11px; font-weight: 700; color: var(--accent-primary);">MAGNA: Calculando...</div>
@@ -490,6 +491,7 @@
                         </div>
                     </div>
                 </div>
+            </div>
                 <footer class="modal-footer">
                     <button class="btn-secondary btn-cancel-modal">Cancelar</button>
                     <button class="btn-primary" id="btn-save-placemark">Guardar</button>
@@ -673,13 +675,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- App JS Modules -->
-    <script type="module" src="js/app.js?v=18"></script>
+    <script type="module" src="js/app.js?v=19"></script>
     
     <!-- Service Worker Registration with auto-update -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js?v=18').then(registration => {
+                navigator.serviceWorker.register('./sw.js?v=19').then(registration => {
                     registration.update();
                     console.log('ServiceWorker registered with scope: ', registration.scope);
                 }, err => {

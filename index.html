@@ -36,7 +36,7 @@
         if ('caches' in window) {
             caches.keys().then(keys => {
                 keys.forEach(k => {
-                    if (k.startsWith('campo-maps-') && !k.includes('-v11')) {
+                    if (k.startsWith('campo-maps-') && !k.includes('-v12')) {
                         console.log('Purging outdated cache:', k);
                         caches.delete(k);
                     }
@@ -46,7 +46,7 @@
     </script>
 
     <!-- App CSS -->
-    <link rel="stylesheet" href="css/style.css?v=11">
+    <link rel="stylesheet" href="css/style.css?v=12">
 </head>
 <body>
 
@@ -307,6 +307,17 @@
                     <button class="btn-close-modal"><svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                 </header>
                 <div class="modal-body form-group">
+                    <!-- Live Coordinates & Precision Badge -->
+                    <div id="pm-coord-status-box" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px;">
+                        <div>
+                            <div id="pm-status-magna" style="font-size: 11px; font-weight: 700; color: var(--accent-primary);">MAGNA: Calculando...</div>
+                            <div id="pm-status-acc" style="font-size: 10px; color: var(--text-secondary);">Precisión: --</div>
+                        </div>
+                        <button type="button" id="btn-average-gps" class="btn-secondary" style="font-size: 10px; padding: 5px 8px; border-color: var(--accent-primary); color: var(--accent-primary); font-weight: 600; white-space: nowrap;">
+                            🎯 Promediar GPS
+                        </button>
+                    </div>
+
                     <label for="pm-name">Nombre</label>
                     <input type="text" id="pm-name" class="form-control" placeholder="Ej. Punto de muestreo 1">
                     
@@ -529,13 +540,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- App JS Modules -->
-    <script type="module" src="js/app.js?v=11"></script>
+    <script type="module" src="js/app.js?v=12"></script>
     
     <!-- Service Worker Registration with auto-update -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js?v=11').then(registration => {
+                navigator.serviceWorker.register('./sw.js?v=12').then(registration => {
                     registration.update();
                     console.log('ServiceWorker registered with scope: ', registration.scope);
                 }, err => {

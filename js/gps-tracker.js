@@ -4,6 +4,8 @@ export class GPSTracker {
         this.onPositionUpdate = null;
         this.onError = null;
         this.lastPosition = null;
+        this.positionBuffer = [];
+        this.currentHeading = null;
     }
 
     start() {
@@ -46,7 +48,7 @@ export class GPSTracker {
             const options = {
                 enableHighAccuracy: true,
                 timeout: 12000,
-                maximumAge: 5000
+                maximumAge: 0
             };
 
             navigator.geolocation.getCurrentPosition(
@@ -68,17 +70,111 @@ export class GPSTracker {
     }
 
     handlePosition(position) {
-        const pos = {
+        const raw = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
             altitude: position.coords.altitude,
             speed: position.coords.speed,
-            accuracy: position.coords.accuracy,
+            accuracy: position.coords.accuracy || 15,
             heading: position.coords.heading,
             timestamp: position.timestamp
         };
+
+        // Add to buffer for stabilization (keeps last 5 samples)
+        this.positionBuffer.push(raw);
+        if (this.positionBuffer.length > 5) {
+            this.positionBuffer.shift();
+        }
+
+        // Compute weighted moving average to dampen multi-path jitter
+        let totalWeight = 0;
+        let weightedLat = 0;
+        let weightedLng = 0;
+        let weightedAlt = 0;
+        let altWeights = 0;
+
+        for (const s of this.positionBuffer) {
+            // Weight inversely proportional to accuracy: higher precision = more weight
+            const w = 1 / Math.max(1, s.accuracy);
+            weightedLat += s.lat * w;
+            weightedLng += s.lng * w;
+            totalWeight += w;
+            if (s.altitude !== null) {
+                weightedAlt += s.altitude * w;
+                altWeights += w;
+            }
+        }
+
+        const pos = {
+            lat: weightedLat / totalWeight,
+            lng: weightedLng / totalWeight,
+            altitude: altWeights > 0 ? weightedAlt / altWeights : raw.altitude,
+            speed: raw.speed,
+            accuracy: raw.accuracy,
+            heading: raw.heading,
+            timestamp: raw.timestamp
+        };
+
         this.lastPosition = pos;
         if (this.onPositionUpdate) this.onPositionUpdate(pos);
+    }
+
+    async getAveragedPosition(targetSamples = 8, onProgress = null) {
+        return new Promise((resolve, reject) => {
+            const samples = [];
+            const startTime = Date.now();
+            const timeoutMs = 10000;
+
+            const tempWatch = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const acc = pos.coords.accuracy || 20;
+                    samples.push({
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        altitude: pos.coords.altitude,
+                        accuracy: acc,
+                        timestamp: pos.timestamp
+                    });
+
+                    if (onProgress) {
+                        onProgress(samples.length, targetSamples, acc);
+                    }
+
+                    if (samples.length >= targetSamples || (Date.now() - startTime) >= timeoutMs) {
+                        navigator.geolocation.clearWatch(tempWatch);
+
+                        // Discard top worst accuracy outliers if we have enough samples
+                        samples.sort((a, b) => a.accuracy - b.accuracy);
+                        const cleanSamples = samples.slice(0, Math.max(1, Math.round(samples.length * 0.8)));
+
+                        let tw = 0, wLat = 0, wLng = 0, wAlt = 0, wAcc = 0;
+                        for (const s of cleanSamples) {
+                            const w = 1 / Math.max(1, s.accuracy);
+                            wLat += s.lat * w;
+                            wLng += s.lng * w;
+                            wAcc += s.accuracy * w;
+                            if (s.altitude !== null) wAlt += s.altitude * w;
+                            tw += w;
+                        }
+
+                        const result = {
+                            lat: wLat / tw,
+                            lng: wLng / tw,
+                            altitude: cleanSamples[0].altitude !== null ? wAlt / tw : null,
+                            accuracy: Math.round((wAcc / tw) * 0.85),
+                            samplesUsed: cleanSamples.length,
+                            timestamp: Date.now()
+                        };
+                        resolve(result);
+                    }
+                },
+                (err) => {
+                    navigator.geolocation.clearWatch(tempWatch);
+                    reject(err);
+                },
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+            );
+        });
     }
 
     handleError(error) {

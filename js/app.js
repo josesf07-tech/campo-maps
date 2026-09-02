@@ -304,7 +304,27 @@ function updateInfoBar(pos) {
     setTextById('info-magna-e', `E: ${Math.round(magna.este).toLocaleString('es-CO')} m`);
     setTextById('info-coords-geo', `${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}`);
     setTextById('info-alt', pos.altitude !== null ? `${pos.altitude.toFixed(0)} m` : '-- m');
-    setTextById('info-acc', `±${pos.accuracy ? Math.round(pos.accuracy) : '--'} m`);
+
+    const accEl = document.getElementById('info-acc');
+    if (accEl) {
+        const acc = pos.accuracy ? Math.round(pos.accuracy) : null;
+        if (acc !== null) {
+            accEl.textContent = `±${acc} m`;
+            if (acc <= 5) {
+                accEl.style.color = '#2ecc71'; // Green: Óptimo (cielo abierto)
+                accEl.title = 'Señal GNSS óptima';
+            } else if (acc <= 15) {
+                accEl.style.color = '#f39c12'; // Yellow: Aceptable
+                accEl.title = 'Señal GNSS media';
+            } else {
+                accEl.style.color = '#e74c3c'; // Red: Baja (interiores/edificio)
+                accEl.title = 'Señal débil (posible rebote en edificio)';
+            }
+        } else {
+            accEl.textContent = '-- m';
+            accEl.style.color = 'inherit';
+        }
+    }
 }
 
 // ========== TRACKS ==========
@@ -908,6 +928,56 @@ function openPlacemarkModal(latlng) {
     // Reset photos
     if (window.__campoMapsClearPhotos) window.__campoMapsClearPhotos();
     
+    // Update live coordinates and precision display
+    const statusMagna = document.getElementById('pm-status-magna');
+    const statusAcc = document.getElementById('pm-status-acc');
+    const btnAverage = document.getElementById('btn-average-gps');
+
+    if (latlng) {
+        const magna = toMagnaSirgas(latlng.lat, latlng.lng);
+        if (statusMagna) statusMagna.textContent = `MAGNA: N: ${Math.round(magna.norte).toLocaleString('es-CO')} | E: ${Math.round(magna.este).toLocaleString('es-CO')}`;
+    }
+
+    const currentAcc = (state.gps && state.gps.lastPosition) ? state.gps.lastPosition.accuracy : null;
+    if (statusAcc) {
+        if (currentAcc) {
+            const accVal = Math.round(currentAcc);
+            const qual = accVal <= 5 ? '🟢 Alta' : (accVal <= 15 ? '🟡 Media' : '🔴 Baja (Interiores)');
+            statusAcc.textContent = `Precisión actual: ±${accVal} m (${qual})`;
+        } else {
+            statusAcc.textContent = 'Precisión: Punto fijado en pantalla';
+        }
+    }
+
+    if (btnAverage) {
+        btnAverage.textContent = '🎯 Promediar GPS';
+        btnAverage.disabled = false;
+        btnAverage.onclick = async () => {
+            if (!state.gps || !state.gps.getAveragedPosition) {
+                showToast('GPS no activo');
+                return;
+            }
+            btnAverage.disabled = true;
+            try {
+                showToast('📡 Tomando lecturas para estabilizar...');
+                const avgPos = await state.gps.getAveragedPosition(8, (curr, total, acc) => {
+                    btnAverage.textContent = `⏳ ${curr}/${total} (±${Math.round(acc)}m)`;
+                });
+
+                pendingPlacemarkLatLng = { lat: avgPos.lat, lng: avgPos.lng };
+                const m = toMagnaSirgas(avgPos.lat, avgPos.lng);
+                if (statusMagna) statusMagna.textContent = `MAGNA: N: ${Math.round(m.norte).toLocaleString('es-CO')} | E: ${Math.round(m.este).toLocaleString('es-CO')}`;
+                if (statusAcc) statusAcc.textContent = `🎯 Promediado con éxito (±${avgPos.accuracy} m - 8 lecturas)`;
+                btnAverage.textContent = `✔ ±${avgPos.accuracy}m`;
+                showToast(`🎯 Coordenadas estabilizadas a ±${avgPos.accuracy} m`);
+            } catch (err) {
+                btnAverage.textContent = '🎯 Reintentar';
+                btnAverage.disabled = false;
+                showToast('⚠️ No se pudo promediar: ' + err.message);
+            }
+        };
+    }
+
     // Show modal
     const modal = document.getElementById('modal-placemark');
     if (modal) modal.classList.remove('hidden');

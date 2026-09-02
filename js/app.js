@@ -13,6 +13,8 @@ import { PlacemarkManager } from './placemarks.js';
 import { MapCalibrator } from './calibration.js';
 import { toMagnaSirgas, fromMagnaSirgas } from './coords.js';
 import { exportPlacemarksToKMZ } from './kmz-export.js';
+import { exportPlacemarksToDocx } from './docx-export.js';
+import { exportUsoUsuariosToExcel, FUENTES_AGUA } from './excel-export.js';
 import { MeasurementTool } from './measurement.js';
 import { TileDownloader } from './tile-downloader.js';
 
@@ -881,26 +883,147 @@ function setupPlacemarks() {
         });
     }
 
-    // KMZ Export button (Google Earth / Avenza / ArcGIS)
-    const btnExportKmz = document.getElementById('btn-export-kmz');
-    if (btnExportKmz) {
-        btnExportKmz.addEventListener('click', async () => {
-            try {
-                const pms = await getPlacemarks();
-                if (!pms || pms.length === 0) {
-                    showToast('⚠️ No tienes marcadores para exportar');
-                    return;
-                }
-                showToast('📦 Empaquetando KMZ con fotos y coordenadas MAGNA...');
-                const dateStr = new Date().toISOString().slice(0, 10);
-                await exportPlacemarksToKMZ(pms, `CampoMaps_Puntos_MAGNA_${dateStr}.kmz`);
-                showToast('✅ ¡Archivo KMZ generado y descargado!');
-            } catch (err) {
-                console.error('Error al exportar KMZ:', err);
-                showToast('❌ Error al exportar KMZ: ' + (err.message || err));
+    // Populate dropdowns for Uso y Usuarios
+    document.querySelectorAll('.censo-select-fuente').forEach(select => {
+        if (select.children.length <= 1) {
+            FUENTES_AGUA.forEach(fuente => {
+                const opt = document.createElement('option');
+                opt.value = fuente;
+                opt.textContent = fuente;
+                select.appendChild(opt);
+            });
+        }
+    });
+
+    // Toggle Censo Accordion
+    const toggleCensoHeader = document.getElementById('toggle-censo-header');
+    const checkEnableCenso = document.getElementById('check-enable-censo');
+    const censoFormBody = document.getElementById('censo-form-body');
+    const censoArrow = document.getElementById('censo-arrow');
+
+    if (toggleCensoHeader && censoFormBody) {
+        toggleCensoHeader.addEventListener('click', (e) => {
+            if (e.target !== checkEnableCenso) {
+                if (checkEnableCenso) checkEnableCenso.checked = !checkEnableCenso.checked;
+            }
+            if (checkEnableCenso && checkEnableCenso.checked) {
+                censoFormBody.classList.remove('hidden');
+                if (censoArrow) censoArrow.textContent = '▲';
+            } else {
+                censoFormBody.classList.add('hidden');
+                if (censoArrow) censoArrow.textContent = '▼';
             }
         });
     }
+
+    // Export Helpers
+    async function getActivePlacemarks() {
+        const allPms = await getPlacemarks();
+        const filtered = allPms.filter(pm => {
+            if (!state.currentProjectId || state.currentProjectId === 'default_proj') {
+                return !pm.projectId || pm.projectId === 'default_proj';
+            }
+            return pm.projectId === state.currentProjectId;
+        });
+        return filtered.length > 0 ? filtered : allPms;
+    }
+
+    async function handleExportKmz() {
+        try {
+            const pms = await getActivePlacemarks();
+            if (!pms || pms.length === 0) {
+                showToast('⚠️ No tienes marcadores para exportar');
+                return;
+            }
+            showToast('📦 Generando KMZ con fotos y coordenadas MAGNA...');
+            const projName = (state.currentProjectName || 'CampoMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            await exportPlacemarksToKMZ(pms, `${projName}_Puntos_MAGNA_${dateStr}.kmz`);
+            showToast('✅ ¡Archivo KMZ descargado con éxito!');
+        } catch (err) {
+            console.error('Error al exportar KMZ:', err);
+            showToast('❌ Error al exportar KMZ: ' + (err.message || err));
+        }
+    }
+
+    async function handleExportDocx() {
+        try {
+            const pms = await getActivePlacemarks();
+            if (!pms || pms.length === 0) {
+                showToast('⚠️ No hay marcadores para exportar');
+                return;
+            }
+            const chapterInput = document.getElementById('setting-doc-chapter');
+            const capitulo = chapterInput ? parseInt(chapterInput.value, 10) || 5 : 5;
+            const projName = (state.currentProjectName || 'CampoMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            
+            showToast('📄 Generando Registro Fotográfico Word (.docx)...');
+            await exportPlacemarksToDocx(pms, {
+                capitulo,
+                filename: `Registro_Fotografico_${projName}_Cap${capitulo}_${dateStr}.docx`,
+                etiquetaCoords: 'Coordenadas Magna Sirgas Origen Nacional '
+            });
+            showToast('✅ ¡Informe Word (.docx) descargado!');
+        } catch (err) {
+            console.error('Error al exportar Word:', err);
+            showToast('❌ Error al exportar Word: ' + (err.message || err));
+        }
+    }
+
+    async function handleExportExcelUso() {
+        try {
+            const pms = await getActivePlacemarks();
+            if (!pms || pms.length === 0) {
+                showToast('⚠️ No hay marcadores para exportar');
+                return;
+            }
+            const projName = (state.currentProjectName || 'CampoMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
+            const dateStr = new Date().toISOString().slice(0, 10);
+
+            showToast('📊 Generando Matriz Excel de Uso y Usuarios...');
+            await exportUsoUsuariosToExcel(pms, `Censo_Uso_y_Usuarios_${projName}_${dateStr}.xlsx`);
+            showToast('✅ ¡Matriz Excel (.xlsx) descargada!');
+        } catch (err) {
+            console.error('Error al exportar Excel:', err);
+            showToast('❌ Error al exportar Excel: ' + (err.message || err));
+        }
+    }
+
+    async function handleExportAll() {
+        showToast('⚡ Generando paquete completo de entregables...');
+        try {
+            await handleExportKmz();
+            await new Promise(r => setTimeout(r, 600));
+            await handleExportDocx();
+            await new Promise(r => setTimeout(r, 600));
+            await handleExportExcelUso();
+            showToast('🎉 ¡Paquete completo (KMZ, Word y Excel) generado!');
+        } catch (err) {
+            console.error('Error en exportación completa:', err);
+        }
+    }
+
+    // Attach to UI buttons
+    const btnExportKmz = document.getElementById('btn-export-kmz');
+    if (btnExportKmz) btnExportKmz.addEventListener('click', handleExportKmz);
+    const btnSettingsKmz = document.getElementById('btn-settings-export-kmz');
+    if (btnSettingsKmz) btnSettingsKmz.addEventListener('click', handleExportKmz);
+
+    const btnExportDocx = document.getElementById('btn-export-docx');
+    if (btnExportDocx) btnExportDocx.addEventListener('click', handleExportDocx);
+    const btnSettingsDocx = document.getElementById('btn-settings-export-docx');
+    if (btnSettingsDocx) btnSettingsDocx.addEventListener('click', handleExportDocx);
+
+    const btnExportExcel = document.getElementById('btn-export-excel-uso');
+    if (btnExportExcel) btnExportExcel.addEventListener('click', handleExportExcelUso);
+    const btnSettingsExcel = document.getElementById('btn-settings-export-excel');
+    if (btnSettingsExcel) btnSettingsExcel.addEventListener('click', handleExportExcelUso);
+
+    const btnExportAll = document.getElementById('btn-export-all-bundle');
+    if (btnExportAll) btnExportAll.addEventListener('click', handleExportAll);
+    const btnSettingsAll = document.getElementById('btn-settings-export-all');
+    if (btnSettingsAll) btnSettingsAll.addEventListener('click', handleExportAll);
 
     // Make renderPhotosGrid accessible to modal open/close
     window.__campoMapsRenderPhotos = renderPhotosGrid;
@@ -928,6 +1051,23 @@ function openPlacemarkModal(latlng) {
     // Reset photos
     if (window.__campoMapsClearPhotos) window.__campoMapsClearPhotos();
     
+    // Reset Censo form
+    const checkCenso = document.getElementById('check-enable-censo');
+    const censoBody = document.getElementById('censo-form-body');
+    const censoArrow = document.getElementById('censo-arrow');
+    if (checkCenso) checkCenso.checked = false;
+    if (censoBody) censoBody.classList.add('hidden');
+    if (censoArrow) censoArrow.textContent = '▼';
+
+    const censoCota = document.getElementById('censo-cota');
+    if (censoCota) {
+        if (state.gps && state.gps.lastPosition && state.gps.lastPosition.altitude !== null) {
+            censoCota.value = Math.round(state.gps.lastPosition.altitude);
+        } else {
+            censoCota.value = '';
+        }
+    }
+
     // Update live coordinates and precision display
     const statusMagna = document.getElementById('pm-status-magna');
     const statusAcc = document.getElementById('pm-status-acc');
@@ -990,12 +1130,35 @@ async function savePlacemarkFromModal() {
     const desc = document.getElementById('pm-desc')?.value || '';
     const photos = window.__campoMapsGetPhotos ? window.__campoMapsGetPhotos() : [];
     
+    // Check if Censo is enabled
+    const isCensoEnabled = document.getElementById('check-enable-censo')?.checked;
+    let censoData = null;
+    if (isCensoEnabled) {
+        censoData = {
+            idCampo: document.getElementById('censo-id-campo')?.value.trim() || '',
+            idFinal: document.getElementById('censo-id-final')?.value.trim() || '',
+            municipio: document.getElementById('censo-municipio')?.value.trim() || '',
+            vereda: document.getElementById('censo-vereda')?.value.trim() || '',
+            predio: document.getElementById('censo-predio')?.value.trim() || '',
+            habitantes: document.getElementById('censo-habitantes')?.value.trim() || '',
+            cota: document.getElementById('censo-cota')?.value.trim() || '',
+            fuentePrimaria: document.getElementById('censo-fuente-primaria')?.value || '',
+            fuenteSecundaria: document.getElementById('censo-fuente-secundaria')?.value || '',
+            fuentePecuario: document.getElementById('censo-fuente-pecuario')?.value || '',
+            fuenteAgricola: document.getElementById('censo-fuente-agricola')?.value || '',
+            otrosUsos: document.getElementById('censo-otros-usos')?.value.trim() || '',
+            residuoLiquido: document.getElementById('censo-residuo-liquido')?.value || '',
+            residuoSolido: document.getElementById('censo-residuo-solido')?.value || '',
+        };
+    }
+
     const data = {
         name,
         description: desc,
         icon: state.selectedIcon,
         color: '#2ecc71',
         photos: photos,
+        censoAgua: censoData,
         projectId: state.currentProjectId || 'default_proj',
         createdAt: new Date().toISOString()
     };

@@ -33,13 +33,16 @@
     
     <!-- SheetJS for Excel (.xlsx) export -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- ExcelJS for embedding photos in Excel (.xlsx) -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     
     <script>
         // Force purge any old cached versions on clients
         if ('caches' in window) {
             caches.keys().then(keys => {
                 keys.forEach(k => {
-                    if (k.startsWith('campo-maps-') && !k.includes('-v15')) {
+                    if (k.startsWith('campo-maps-') && !k.includes('-v16')) {
                         console.log('Purging outdated cache:', k);
                         caches.delete(k);
                     }
@@ -49,7 +52,7 @@
     </script>
 
     <!-- App CSS -->
-    <link rel="stylesheet" href="css/style.css?v=15">
+    <link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body>
 
@@ -652,13 +655,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- App JS Modules -->
-    <script type="module" src="js/app.js?v=15"></script>
+    <script type="module" src="js/app.js?v=16"></script>
     
     <!-- Service Worker Registration with auto-update -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js?v=15').then(registration => {
+                navigator.serviceWorker.register('./sw.js?v=16').then(registration => {
                     registration.update();
                     console.log('ServiceWorker registered with scope: ', registration.scope);
                 }, err => {

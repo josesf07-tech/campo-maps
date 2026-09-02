@@ -7,7 +7,7 @@
  * offline fallbacks, and cache management messaging.
  */
 
-const CACHE_VERSION = 'v15';
+const CACHE_VERSION = 'v16';
 const APP_CACHE_NAME = `campo-maps-${CACHE_VERSION}`;
 const TILE_CACHE_NAME = `campo-maps-tiles-${CACHE_VERSION}`;
 const MAX_TILES = 5000;
@@ -57,6 +57,7 @@ const PRECACHE_ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.2/proj4.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+  'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js',
   'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'

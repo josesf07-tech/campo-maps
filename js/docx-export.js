@@ -188,7 +188,7 @@ export async function exportPlacemarksToDocx(placemarks, options = {}) {
             <w:tcPr><w:tcW w:w="4015" w:type="dxa"/></w:tcPr>
             <w:p>
               <w:pPr><w:pStyle w:val="Descripcin"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Century Gothic"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:pPr>
-              <w:r><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Century Gothic"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr><w:t xml:space="preserve">Fotografía ${capitulo}-${seqIzq}: ${descIzq} </w:t></w:r>
+              <w:r><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Century Gothic"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr><w:t xml:space="preserve">Fotografía ${seqIzq}: ${descIzq} </w:t></w:r>
             </w:p>
             <w:p>
               <w:pPr><w:jc w:val="center"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Century Gothic"/><w:b/><w:bCs/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:pPr>
@@ -219,7 +219,7 @@ export async function exportPlacemarksToDocx(placemarks, options = {}) {
             <w:tcPr><w:tcW w:w="4015" w:type="dxa"/></w:tcPr>
             <w:p>
               <w:pPr><w:pStyle w:val="Descripcin"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Century Gothic"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:pPr>
-              <w:r><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Century Gothic"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr><w:t xml:space="preserve">Fotografía ${capitulo}-${seqDer}: ${descDer} </w:t></w:r>
+              <w:r><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Century Gothic"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr><w:t xml:space="preserve">Fotografía ${seqDer}: ${descDer} </w:t></w:r>
             </w:p>
             <w:p>
               <w:pPr><w:jc w:val="center"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Century Gothic"/><w:b/><w:bCs/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:pPr>

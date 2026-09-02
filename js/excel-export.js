@@ -134,53 +134,39 @@ export async function exportUsoUsuariosToExcel(placemarks, filename = 'Censo_Uso
         row[0] = itemIndex++;
         row[1] = este;
         row[2] = norte;
-        row[3] = censo.esteFinal || este;
-        row[4] = censo.norteFinal || norte;
+        // Ignorar coordenada final: columnas 3 y 4 se dejan vacías
+        row[3] = '';
+        row[4] = '';
         row[5] = censo.municipio || '';
         row[6] = censo.vereda || '';
         row[7] = censo.predio || pm.name || '';
         row[8] = censo.habitantes !== undefined && censo.habitantes !== '' ? Number(censo.habitantes) : '';
 
-        // Marcar Fuente Primaria Doméstica
-        if (censo.fuentePrimaria) {
-            const idx = FUENTES_AGUA.indexOf(censo.fuentePrimaria);
-            if (idx !== -1) row[9 + idx] = 'X';
-        }
+        // Helper para marcar opciones (soporta array múltiple o string único)
+        const marcarOpciones = (seleccion, listaRef, offsetCol) => {
+            if (!seleccion) return;
+            const items = Array.isArray(seleccion) ? seleccion : [seleccion];
+            for (const item of items) {
+                if (!item) continue;
+                const idx = listaRef.indexOf(item);
+                if (idx !== -1) {
+                    row[offsetCol + idx] = 'X';
+                }
+            }
+        };
 
-        // Marcar Fuente Secundaria Doméstica
-        if (censo.fuenteSecundaria) {
-            const idx = FUENTES_AGUA.indexOf(censo.fuenteSecundaria);
-            if (idx !== -1) row[29 + idx] = 'X';
-        }
-
-        // Marcar Fuente Pecuaria
-        if (censo.fuentePecuario) {
-            const idx = FUENTES_AGUA.indexOf(censo.fuentePecuario);
-            if (idx !== -1) row[49 + idx] = 'X';
-        }
-
-        // Marcar Fuente Agrícola
-        if (censo.fuenteAgricola) {
-            const idx = FUENTES_AGUA.indexOf(censo.fuenteAgricola);
-            if (idx !== -1) row[69 + idx] = 'X';
-        }
+        // Marcar Fuentes (soporta múltiples selecciones)
+        marcarOpciones(censo.fuentePrimaria, FUENTES_AGUA, 9);
+        marcarOpciones(censo.fuenteSecundaria, FUENTES_AGUA, 29);
+        marcarOpciones(censo.fuentePecuario, FUENTES_AGUA, 49);
+        marcarOpciones(censo.fuenteAgricola, FUENTES_AGUA, 69);
 
         // Otros usos
         row[89] = censo.otrosUsos || '';
 
-        // Residuos Líquidos
-        if (censo.residuoLiquido) {
-            const idx = RESIDUOS_LIQUIDOS.indexOf(censo.residuoLiquido);
-            if (idx !== -1) row[90 + idx] = 'X';
-            else if (censo.residuoLiquidoOtro) row[93] = censo.residuoLiquidoOtro;
-        }
-
-        // Residuos Sólidos
-        if (censo.residuoSolido) {
-            const idx = RESIDUOS_SOLIDOS.indexOf(censo.residuoSolido);
-            if (idx !== -1) row[94 + idx] = 'X';
-            else if (censo.residuoSolidoOtro) row[98] = censo.residuoSolidoOtro;
-        }
+        // Residuos Líquidos y Sólidos (soporta múltiples selecciones)
+        marcarOpciones(censo.residuoLiquido, RESIDUOS_LIQUIDOS, 90);
+        marcarOpciones(censo.residuoSolido, RESIDUOS_SOLIDOS, 94);
 
         // Cota
         row[99] = censo.cota !== undefined && censo.cota !== '' 

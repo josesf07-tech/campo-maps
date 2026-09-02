@@ -14,7 +14,7 @@ import { MapCalibrator } from './calibration.js';
 import { toMagnaSirgas, fromMagnaSirgas } from './coords.js';
 import { exportPlacemarksToKMZ } from './kmz-export.js';
 import { exportPlacemarksToDocx } from './docx-export.js';
-import { exportUsoUsuariosToExcel, FUENTES_AGUA } from './excel-export.js';
+import { exportUsoUsuariosToExcel, FUENTES_AGUA, RESIDUOS_LIQUIDOS, RESIDUOS_SOLIDOS } from './excel-export.js';
 import { MeasurementTool } from './measurement.js';
 import { TileDownloader } from './tile-downloader.js';
 
@@ -883,17 +883,30 @@ function setupPlacemarks() {
         });
     }
 
-    // Populate dropdowns for Uso y Usuarios
-    document.querySelectorAll('.censo-select-fuente').forEach(select => {
-        if (select.children.length <= 1) {
-            FUENTES_AGUA.forEach(fuente => {
-                const opt = document.createElement('option');
-                opt.value = fuente;
-                opt.textContent = fuente;
-                select.appendChild(opt);
+    // Render multi-select chips for Uso y Usuarios
+    const renderChips = (containerId, items) => {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '';
+        items.forEach(item => {
+            const chip = document.createElement('div');
+            chip.className = 'censo-chip';
+            chip.dataset.val = item;
+            chip.textContent = item;
+            chip.addEventListener('click', (e) => {
+                e.stopPropagation();
+                chip.classList.toggle('selected');
             });
-        }
-    });
+            container.appendChild(chip);
+        });
+    };
+
+    renderChips('chips-fuente-primaria', FUENTES_AGUA);
+    renderChips('chips-fuente-secundaria', FUENTES_AGUA);
+    renderChips('chips-fuente-pecuario', FUENTES_AGUA);
+    renderChips('chips-fuente-agricola', FUENTES_AGUA);
+    renderChips('chips-residuo-liquido', RESIDUOS_LIQUIDOS);
+    renderChips('chips-residuo-solido', RESIDUOS_SOLIDOS);
 
     // Toggle Censo Accordion
     const toggleCensoHeader = document.getElementById('toggle-censo-header');
@@ -929,99 +942,56 @@ function setupPlacemarks() {
     }
 
     async function handleExportKmz() {
-        try {
-            const pms = await getActivePlacemarks();
-            if (!pms || pms.length === 0) {
-                showToast('⚠️ No tienes marcadores para exportar');
-                return;
-            }
-            showToast('📦 Generando KMZ con fotos y coordenadas MAGNA...');
-            const projName = (state.currentProjectName || 'CampoMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
-            const dateStr = new Date().toISOString().slice(0, 10);
-            await exportPlacemarksToKMZ(pms, `${projName}_Puntos_MAGNA_${dateStr}.kmz`);
-            showToast('✅ ¡Archivo KMZ descargado con éxito!');
-        } catch (err) {
-            console.error('Error al exportar KMZ:', err);
-            showToast('❌ Error al exportar KMZ: ' + (err.message || err));
-        }
+        const pms = await getActivePlacemarks();
+        if (!pms || pms.length === 0) return;
+        const projName = (state.currentProjectName || 'CampoMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
+        const dateStr = new Date().toISOString().slice(0, 10);
+        await exportPlacemarksToKMZ(pms, `${projName}_Puntos_MAGNA_${dateStr}.kmz`);
     }
 
     async function handleExportDocx() {
-        try {
-            const pms = await getActivePlacemarks();
-            if (!pms || pms.length === 0) {
-                showToast('⚠️ No hay marcadores para exportar');
-                return;
-            }
-            const chapterInput = document.getElementById('setting-doc-chapter');
-            const capitulo = chapterInput ? parseInt(chapterInput.value, 10) || 5 : 5;
-            const projName = (state.currentProjectName || 'CampoMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
-            const dateStr = new Date().toISOString().slice(0, 10);
-            
-            showToast('📄 Generando Registro Fotográfico Word (.docx)...');
-            await exportPlacemarksToDocx(pms, {
-                capitulo,
-                filename: `Registro_Fotografico_${projName}_Cap${capitulo}_${dateStr}.docx`,
-                etiquetaCoords: 'Coordenadas Magna Sirgas Origen Nacional '
-            });
-            showToast('✅ ¡Informe Word (.docx) descargado!');
-        } catch (err) {
-            console.error('Error al exportar Word:', err);
-            showToast('❌ Error al exportar Word: ' + (err.message || err));
-        }
+        const pms = await getActivePlacemarks();
+        if (!pms || pms.length === 0) return;
+        const projName = (state.currentProjectName || 'CampoMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
+        const dateStr = new Date().toISOString().slice(0, 10);
+        await exportPlacemarksToDocx(pms, {
+            filename: `Registro_Fotografico_${projName}_${dateStr}.docx`,
+            etiquetaCoords: 'Coordenadas Magna Sirgas Origen Nacional '
+        });
     }
 
     async function handleExportExcelUso() {
+        const pms = await getActivePlacemarks();
+        if (!pms || pms.length === 0) return;
+        const projName = (state.currentProjectName || 'CampoMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
+        const dateStr = new Date().toISOString().slice(0, 10);
+        await exportUsoUsuariosToExcel(pms, `Censo_Uso_y_Usuarios_${projName}_${dateStr}.xlsx`);
+    }
+
+    // Unified Export Handler (KMZ + Word + Excel simultaneously)
+    async function handleExportAll() {
         try {
             const pms = await getActivePlacemarks();
             if (!pms || pms.length === 0) {
                 showToast('⚠️ No hay marcadores para exportar');
                 return;
             }
-            const projName = (state.currentProjectName || 'CampoMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
-            const dateStr = new Date().toISOString().slice(0, 10);
-
-            showToast('📊 Generando Matriz Excel de Uso y Usuarios...');
-            await exportUsoUsuariosToExcel(pms, `Censo_Uso_y_Usuarios_${projName}_${dateStr}.xlsx`);
-            showToast('✅ ¡Matriz Excel (.xlsx) descargada!');
-        } catch (err) {
-            console.error('Error al exportar Excel:', err);
-            showToast('❌ Error al exportar Excel: ' + (err.message || err));
-        }
-    }
-
-    async function handleExportAll() {
-        showToast('⚡ Generando paquete completo de entregables...');
-        try {
+            showToast('⚡ Generando paquete completo (KMZ, Word y Excel)...');
             await handleExportKmz();
             await new Promise(r => setTimeout(r, 600));
             await handleExportDocx();
             await new Promise(r => setTimeout(r, 600));
             await handleExportExcelUso();
-            showToast('🎉 ¡Paquete completo (KMZ, Word y Excel) generado!');
+            showToast('🎉 ¡Paquete completo (KMZ + Word + Excel) descargado!');
         } catch (err) {
             console.error('Error en exportación completa:', err);
+            showToast('❌ Error en exportación: ' + (err.message || err));
         }
     }
 
     // Attach to UI buttons
-    const btnExportKmz = document.getElementById('btn-export-kmz');
-    if (btnExportKmz) btnExportKmz.addEventListener('click', handleExportKmz);
-    const btnSettingsKmz = document.getElementById('btn-settings-export-kmz');
-    if (btnSettingsKmz) btnSettingsKmz.addEventListener('click', handleExportKmz);
-
-    const btnExportDocx = document.getElementById('btn-export-docx');
-    if (btnExportDocx) btnExportDocx.addEventListener('click', handleExportDocx);
-    const btnSettingsDocx = document.getElementById('btn-settings-export-docx');
-    if (btnSettingsDocx) btnSettingsDocx.addEventListener('click', handleExportDocx);
-
-    const btnExportExcel = document.getElementById('btn-export-excel-uso');
-    if (btnExportExcel) btnExportExcel.addEventListener('click', handleExportExcelUso);
-    const btnSettingsExcel = document.getElementById('btn-settings-export-excel');
-    if (btnSettingsExcel) btnSettingsExcel.addEventListener('click', handleExportExcelUso);
-
-    const btnExportAll = document.getElementById('btn-export-all-bundle');
-    if (btnExportAll) btnExportAll.addEventListener('click', handleExportAll);
+    const btnExportAllMain = document.getElementById('btn-export-all-main');
+    if (btnExportAllMain) btnExportAllMain.addEventListener('click', handleExportAll);
     const btnSettingsAll = document.getElementById('btn-settings-export-all');
     if (btnSettingsAll) btnSettingsAll.addEventListener('click', handleExportAll);
 
@@ -1058,6 +1028,22 @@ function openPlacemarkModal(latlng) {
     if (checkCenso) checkCenso.checked = false;
     if (censoBody) censoBody.classList.add('hidden');
     if (censoArrow) censoArrow.textContent = '▼';
+
+    const censoIdCampo = document.getElementById('censo-id-campo');
+    if (censoIdCampo) censoIdCampo.value = '';
+    const censoMun = document.getElementById('censo-municipio');
+    if (censoMun) censoMun.value = '';
+    const censoVer = document.getElementById('censo-vereda');
+    if (censoVer) censoVer.value = '';
+    const censoPredio = document.getElementById('censo-predio');
+    if (censoPredio) censoPredio.value = '';
+    const censoHab = document.getElementById('censo-habitantes');
+    if (censoHab) censoHab.value = '';
+    const censoOtros = document.getElementById('censo-otros-usos');
+    if (censoOtros) censoOtros.value = '';
+
+    // Clear all chips selection
+    document.querySelectorAll('.censo-chip').forEach(c => c.classList.remove('selected'));
 
     const censoCota = document.getElementById('censo-cota');
     if (censoCota) {
@@ -1130,25 +1116,31 @@ async function savePlacemarkFromModal() {
     const desc = document.getElementById('pm-desc')?.value || '';
     const photos = window.__campoMapsGetPhotos ? window.__campoMapsGetPhotos() : [];
     
+    // Helper to get selected chip values
+    const getSelectedChips = (containerId) => {
+        const container = document.getElementById(containerId);
+        if (!container) return [];
+        return Array.from(container.querySelectorAll('.censo-chip.selected')).map(c => c.dataset.val);
+    };
+
     // Check if Censo is enabled
     const isCensoEnabled = document.getElementById('check-enable-censo')?.checked;
     let censoData = null;
     if (isCensoEnabled) {
         censoData = {
             idCampo: document.getElementById('censo-id-campo')?.value.trim() || '',
-            idFinal: document.getElementById('censo-id-final')?.value.trim() || '',
             municipio: document.getElementById('censo-municipio')?.value.trim() || '',
             vereda: document.getElementById('censo-vereda')?.value.trim() || '',
             predio: document.getElementById('censo-predio')?.value.trim() || '',
             habitantes: document.getElementById('censo-habitantes')?.value.trim() || '',
             cota: document.getElementById('censo-cota')?.value.trim() || '',
-            fuentePrimaria: document.getElementById('censo-fuente-primaria')?.value || '',
-            fuenteSecundaria: document.getElementById('censo-fuente-secundaria')?.value || '',
-            fuentePecuario: document.getElementById('censo-fuente-pecuario')?.value || '',
-            fuenteAgricola: document.getElementById('censo-fuente-agricola')?.value || '',
+            fuentePrimaria: getSelectedChips('chips-fuente-primaria'),
+            fuenteSecundaria: getSelectedChips('chips-fuente-secundaria'),
+            fuentePecuario: getSelectedChips('chips-fuente-pecuario'),
+            fuenteAgricola: getSelectedChips('chips-fuente-agricola'),
             otrosUsos: document.getElementById('censo-otros-usos')?.value.trim() || '',
-            residuoLiquido: document.getElementById('censo-residuo-liquido')?.value || '',
-            residuoSolido: document.getElementById('censo-residuo-solido')?.value || '',
+            residuoLiquido: getSelectedChips('chips-residuo-liquido'),
+            residuoSolido: getSelectedChips('chips-residuo-solido')
         };
     }
 

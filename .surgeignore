@@ -1,0 +1,6 @@
+cloudflared.exe
+*.pdf
+*.py
+*.log
+*.tmp
+.git

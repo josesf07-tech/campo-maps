@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#16213e"/>
+      <stop offset="60%" stop-color="#0f3460"/>
+      <stop offset="100%" stop-color="#1a1a2e"/>
+    </linearGradient>
+    <linearGradient id="pinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff5772"/>
+      <stop offset="100%" stop-color="#e94560"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect x="24" y="24" width="464" height="464" rx="100" fill="url(#bgGrad)"/>
+
+  <!-- Topographic Contour Lines -->
+  <ellipse cx="256" cy="245" rx="190" ry="135" fill="none" stroke="#4ecca3" stroke-width="2.5" stroke-opacity="0.25"/>
+  <ellipse cx="256" cy="245" rx="145" ry="100" fill="none" stroke="#00adb5" stroke-width="2.5" stroke-opacity="0.35"/>
+  <ellipse cx="256" cy="245" rx="105" ry="72" fill="none" stroke="#4ecca3" stroke-width="2.5" stroke-opacity="0.45"/>
+
+  <!-- Terrain Silhouette -->
+  <path d="M 24 400 L 76 332 L 194 215 L 296 296 L 399 235 L 471 348 L 488 400 Z" fill="#0f415a" fill-opacity="0.55"/>
+  <path d="M 76 332 L 194 215 L 296 296 L 399 235 L 471 348" fill="none" stroke="#4ecca3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.8"/>
+
+  <!-- GPS Pulse Waves -->
+  <circle cx="256" cy="225" r="110" fill="none" stroke="#4ecca3" stroke-width="2.5" stroke-opacity="0.3" stroke-dasharray="6 4"/>
+  <circle cx="256" cy="225" r="160" fill="none" stroke="#4ecca3" stroke-width="2" stroke-opacity="0.2" stroke-dasharray="8 6"/>
+
+  <!-- Pin Pin Pointer -->
+  <g filter="url(#shadow)">
+    <!-- Pin Body -->
+    <path d="M 256 360 C 256 360 170 270 170 205 A 86 86 0 1 1 342 205 C 342 270 256 360 256 360 Z" fill="url(#pinGrad)"/>
+    <!-- Inner Dark Circle -->
+    <circle cx="256" cy="205" r="48" fill="#1a1a2e"/>
+    <!-- Center GPS Target -->
+    <circle cx="256" cy="205" r="22" fill="#4ecca3"/>
+    <!-- Crosshairs -->
+    <line x1="202" y1="205" x2="226" y2="205" stroke="#4ecca3" stroke-width="4" stroke-linecap="round"/>
+    <line x1="286" y1="205" x2="310" y2="205" stroke="#4ecca3" stroke-width="4" stroke-linecap="round"/>
+    <line x1="256" y1="151" x2="256" y2="175" stroke="#4ecca3" stroke-width="4" stroke-linecap="round"/>
+    <line x1="256" y1="235" x2="256" y2="259" stroke="#4ecca3" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,0 +1,6 @@
+cloudflared.exe
+*.pdf
+*.log
+*.tmp
+server.py
+generate_icons.py

@@ -883,6 +883,25 @@ function setupPlacemarks() {
         });
     }
 
+    // Update badge helper for Censo accordions
+    const updateBadge = (containerId) => {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const count = container.querySelectorAll('.censo-chip.selected').length;
+        const details = container.closest('details');
+        if (details) {
+            const badge = details.querySelector('.censo-badge');
+            if (badge) {
+                badge.textContent = count === 1 ? '1 sel.' : `${count} sel.`;
+                badge.style.background = count > 0 ? '#27ae60' : 'rgba(255, 255, 255, 0.1)';
+                badge.style.color = count > 0 ? '#ffffff' : 'var(--text-secondary)';
+            }
+        }
+    };
+    window.__campoMapsUpdateBadges = () => {
+        ['chips-fuente-primaria', 'chips-fuente-secundaria', 'chips-fuente-pecuario', 'chips-fuente-agricola', 'chips-residuo-liquido', 'chips-residuo-solido'].forEach(id => updateBadge(id));
+    };
+
     // Render multi-select chips for Uso y Usuarios
     const renderChips = (containerId, items) => {
         const container = document.getElementById(containerId);
@@ -894,11 +913,15 @@ function setupPlacemarks() {
             chip.dataset.val = item;
             chip.textContent = item;
             chip.addEventListener('click', (e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 chip.classList.toggle('selected');
+                chip.textContent = chip.classList.contains('selected') ? `✓ ${item}` : item;
+                updateBadge(containerId);
             });
             container.appendChild(chip);
         });
+        updateBadge(containerId);
     };
 
     renderChips('chips-fuente-primaria', FUENTES_AGUA);
@@ -908,7 +931,7 @@ function setupPlacemarks() {
     renderChips('chips-residuo-liquido', RESIDUOS_LIQUIDOS);
     renderChips('chips-residuo-solido', RESIDUOS_SOLIDOS);
 
-    // Toggle Censo Accordion
+    // Toggle Censo Accordion (Robust handler without double-event trap)
     const toggleCensoHeader = document.getElementById('toggle-censo-header');
     const checkEnableCenso = document.getElementById('check-enable-censo');
     const censoFormBody = document.getElementById('censo-form-body');
@@ -916,15 +939,19 @@ function setupPlacemarks() {
 
     if (toggleCensoHeader && censoFormBody) {
         toggleCensoHeader.addEventListener('click', (e) => {
-            if (e.target !== checkEnableCenso) {
-                if (checkEnableCenso) checkEnableCenso.checked = !checkEnableCenso.checked;
-            }
-            if (checkEnableCenso && checkEnableCenso.checked) {
+            e.preventDefault();
+            e.stopPropagation();
+            const willOpen = censoFormBody.classList.contains('hidden');
+            if (checkEnableCenso) checkEnableCenso.checked = willOpen;
+            if (willOpen) {
                 censoFormBody.classList.remove('hidden');
-                if (censoArrow) censoArrow.textContent = '▲';
+                if (censoArrow) censoArrow.textContent = '▲ Ocultar';
+                setTimeout(() => {
+                    censoFormBody.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
             } else {
                 censoFormBody.classList.add('hidden');
-                if (censoArrow) censoArrow.textContent = '▼';
+                if (censoArrow) censoArrow.textContent = '▼ Desplegar';
             }
         });
     }
@@ -1027,7 +1054,7 @@ function openPlacemarkModal(latlng) {
     const censoArrow = document.getElementById('censo-arrow');
     if (checkCenso) checkCenso.checked = false;
     if (censoBody) censoBody.classList.add('hidden');
-    if (censoArrow) censoArrow.textContent = '▼';
+    if (censoArrow) censoArrow.textContent = '▼ Desplegar';
 
     const censoIdCampo = document.getElementById('censo-id-campo');
     if (censoIdCampo) censoIdCampo.value = '';
@@ -1042,8 +1069,12 @@ function openPlacemarkModal(latlng) {
     const censoOtros = document.getElementById('censo-otros-usos');
     if (censoOtros) censoOtros.value = '';
 
-    // Clear all chips selection
-    document.querySelectorAll('.censo-chip').forEach(c => c.classList.remove('selected'));
+    // Clear all chips selection and reset text
+    document.querySelectorAll('.censo-chip').forEach(c => {
+        c.classList.remove('selected');
+        c.textContent = c.dataset.val;
+    });
+    if (window.__campoMapsUpdateBadges) window.__campoMapsUpdateBadges();
 
     const censoCota = document.getElementById('censo-cota');
     if (censoCota) {

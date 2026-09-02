@@ -510,6 +510,7 @@ p {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     flex: 1;
+    min-height: 0;
 }
 
 .modal-footer {
@@ -1202,24 +1203,57 @@ input:checked + .slider:before {
     animation: spin-loader 0.8s linear infinite;
 }
 
-/* Multi-select chips for Censo Uso y Usuarios */
+/* Multi-select chips and accordions for Censo Uso y Usuarios */
+.censo-details {
+    margin-top: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.censo-details summary {
+    padding: 9px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #3498db;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.04);
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background 0.2s ease;
+}
+
+.censo-details[open] summary {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(52, 152, 219, 0.12);
+}
+
+.censo-badge {
+    background: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+    border: 1px solid #2ecc71;
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
 .censo-chips-container {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    max-height: 120px;
-    overflow-y: auto;
-    padding: 6px;
+    padding: 8px;
     background: rgba(0, 0, 0, 0.25);
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    -webkit-overflow-scrolling: touch;
+    border-radius: 0 0 8px 8px;
 }
 
 .censo-chip {
-    padding: 4px 9px;
+    padding: 6px 10px;
     font-size: 11px;
-    border-radius: 12px;
+    border-radius: 14px;
     background: rgba(255, 255, 255, 0.08);
     color: var(--text-primary);
     border: 1px solid rgba(255, 255, 255, 0.15);
@@ -1228,7 +1262,12 @@ input:checked + .slider:before {
     transition: all 0.15s ease;
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
+    line-height: 1.2;
+}
+
+.censo-chip:active {
+    transform: scale(0.95);
 }
 
 .censo-chip.selected {

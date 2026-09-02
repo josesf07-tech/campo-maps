@@ -39,7 +39,7 @@
         if ('caches' in window) {
             caches.keys().then(keys => {
                 keys.forEach(k => {
-                    if (k.startsWith('campo-maps-') && !k.includes('-v14')) {
+                    if (k.startsWith('campo-maps-') && !k.includes('-v15')) {
                         console.log('Purging outdated cache:', k);
                         caches.delete(k);
                     }
@@ -49,7 +49,7 @@
     </script>
 
     <!-- App CSS -->
-    <link rel="stylesheet" href="css/style.css?v=14">
+    <link rel="stylesheet" href="css/style.css?v=15">
 </head>
 <body>
 
@@ -364,23 +364,19 @@
                             <button type="button" id="btn-clear-all-photos" style="background: none; border: none; color: #e74c3c; font-size: 11px; cursor: pointer; text-decoration: underline;">Borrar todas</button>
                         </div>
                         <div id="pm-photos-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; max-height: 180px; overflow-y: auto;">
-                            <!-- Dynamic thumbnails -->
-                        </div>
-                    </div>
-
-                    <!-- Collapsible Activity: Censo Uso y Usuarios -->
+                            <!-- Dynamic thumbnails -                    <!-- Collapsible Activity: Censo Uso y Usuarios -->
                     <div style="margin-top: 14px; border: 1px solid rgba(52, 152, 219, 0.4); border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.02);">
-                        <div id="toggle-censo-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; cursor: pointer; background: rgba(52, 152, 219, 0.15);">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <input type="checkbox" id="check-enable-censo" style="accent-color: #3498db; width: 17px; height: 17px; cursor: pointer;">
-                                <label for="check-enable-censo" style="font-size: 12px; font-weight: 700; color: #3498db; cursor: pointer; margin: 0;">
+                        <div id="toggle-censo-header" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; cursor: pointer; background: rgba(52, 152, 219, 0.2); user-select: none;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="check-enable-censo" style="accent-color: #3498db; width: 18px; height: 18px; pointer-events: none;">
+                                <span style="font-size: 13px; font-weight: 700; color: #3498db;">
                                     📋 Actividad: Uso y Usuarios del Agua
-                                </label>
+                                </span>
                             </div>
-                            <span id="censo-arrow" style="font-size: 11px; color: #3498db; font-weight: bold;">▼</span>
+                            <span id="censo-arrow" style="font-size: 11px; color: #3498db; font-weight: bold; background: rgba(52, 152, 219, 0.25); padding: 4px 8px; border-radius: 4px;">▼ Desplegar</span>
                         </div>
 
-                        <div id="censo-form-body" class="hidden" style="padding: 12px; background: rgba(0,0,0,0.2);">
+                        <div id="censo-form-body" class="hidden" style="padding: 12px; background: rgba(0,0,0,0.25);">
                             <div>
                                 <label for="censo-id-campo" style="font-size: 11px; color: var(--text-secondary);">ID Campo / Punto</label>
                                 <input type="text" id="censo-id-campo" class="form-control" placeholder="Ej: P-01">
@@ -413,35 +409,67 @@
                                 <input type="number" id="censo-cota" class="form-control" placeholder="Ej: 345">
                             </div>
 
-                            <!-- Fuentes de Agua Multi-Seleccion -->
+                            <!-- Fuentes de Agua Multi-Seleccion en Acordeones -->
                             <div style="margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
-                                <h4 style="margin: 0 0 4px 0; font-size: 11px; color: #3498db; text-transform: uppercase; letter-spacing: 0.5px;">💧 Fuentes de Agua (Marca una o varias)</h4>
+                                <h4 style="margin: 0 0 6px 0; font-size: 11px; color: #3498db; text-transform: uppercase; letter-spacing: 0.5px;">💧 Fuentes del Agua (Toca para desplegar y marcar)</h4>
 
-                                <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 8px; margin-bottom: 4px;">1. Fuente Primaria Doméstica</label>
-                                <div id="chips-fuente-primaria" class="censo-chips-container"></div>
+                                <details class="censo-details" open>
+                                    <summary>
+                                        <span>1. Primaria Doméstica</span>
+                                        <span class="censo-badge" id="badge-fuente-primaria">0 sel.</span>
+                                    </summary>
+                                    <div id="chips-fuente-primaria" class="censo-chips-container"></div>
+                                </details>
 
-                                <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 8px; margin-bottom: 4px;">2. Fuente Secundaria Doméstica</label>
-                                <div id="chips-fuente-secundaria" class="censo-chips-container"></div>
+                                <details class="censo-details">
+                                    <summary>
+                                        <span>2. Secundaria Doméstica</span>
+                                        <span class="censo-badge" id="badge-fuente-secundaria">0 sel.</span>
+                                    </summary>
+                                    <div id="chips-fuente-secundaria" class="censo-chips-container"></div>
+                                </details>
 
-                                <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 8px; margin-bottom: 4px;">3. Fuente Uso Pecuario</label>
-                                <div id="chips-fuente-pecuario" class="censo-chips-container"></div>
+                                <details class="censo-details">
+                                    <summary>
+                                        <span>3. Uso Pecuario</span>
+                                        <span class="censo-badge" id="badge-fuente-pecuario">0 sel.</span>
+                                    </summary>
+                                    <div id="chips-fuente-pecuario" class="censo-chips-container"></div>
+                                </details>
 
-                                <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 8px; margin-bottom: 4px;">4. Fuente Uso Agrícola</label>
-                                <div id="chips-fuente-agricola" class="censo-chips-container"></div>
+                                <details class="censo-details">
+                                    <summary>
+                                        <span>4. Uso Agrícola</span>
+                                        <span class="censo-badge" id="badge-fuente-agricola">0 sel.</span>
+                                    </summary>
+                                    <div id="chips-fuente-agricola" class="censo-chips-container"></div>
+                                </details>
 
-                                <label for="censo-otros-usos" style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 8px; margin-bottom: 4px;">5. Otros Usos</label>
-                                <input type="text" id="censo-otros-usos" class="form-control" placeholder="Ej: Piscícola, minero, recreativo...">
+                                <div style="margin-top: 8px;">
+                                    <label for="censo-otros-usos" style="font-size: 11px; color: var(--text-secondary);">5. Otros Usos</label>
+                                    <input type="text" id="censo-otros-usos" class="form-control" placeholder="Ej: Piscícola, minero, recreativo...">
+                                </div>
                             </div>
 
                             <!-- Residuos Multi-Seleccion -->
                             <div style="margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
-                                <h4 style="margin: 0 0 4px 0; font-size: 11px; color: #e67e22; text-transform: uppercase; letter-spacing: 0.5px;">♻️ Manejo de Residuos (Marca una o varias)</h4>
+                                <h4 style="margin: 0 0 6px 0; font-size: 11px; color: #e67e22; text-transform: uppercase; letter-spacing: 0.5px;">♻️ Manejo de Residuos (Toca para desplegar)</h4>
 
-                                <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 8px; margin-bottom: 4px;">Residuos Líquidos</label>
-                                <div id="chips-residuo-liquido" class="censo-chips-container"></div>
+                                <details class="censo-details">
+                                    <summary>
+                                        <span>Residuos Líquidos</span>
+                                        <span class="censo-badge" id="badge-residuo-liquido">0 sel.</span>
+                                    </summary>
+                                    <div id="chips-residuo-liquido" class="censo-chips-container"></div>
+                                </details>
 
-                                <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 8px; margin-bottom: 4px;">Residuos Sólidos</label>
-                                <div id="chips-residuo-solido" class="censo-chips-container"></div>
+                                <details class="censo-details">
+                                    <summary>
+                                        <span>Residuos Sólidos</span>
+                                        <span class="censo-badge" id="badge-residuo-solido">0 sel.</span>
+                                    </summary>
+                                    <div id="chips-residuo-solido" class="censo-chips-container"></div>
+                                </details>
                             </div>
                         </div>
                     </div>
@@ -624,13 +652,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- App JS Modules -->
-    <script type="module" src="js/app.js?v=14"></script>
+    <script type="module" src="js/app.js?v=15"></script>
     
     <!-- Service Worker Registration with auto-update -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js?v=14').then(registration => {
+                navigator.serviceWorker.register('./sw.js?v=15').then(registration => {
                     registration.update();
                     console.log('ServiceWorker registered with scope: ', registration.scope);
                 }, err => {

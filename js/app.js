@@ -945,13 +945,19 @@ function setupPlacemarks() {
             if (checkEnableCenso) checkEnableCenso.checked = willOpen;
             if (willOpen) {
                 censoFormBody.classList.remove('hidden');
-                if (censoArrow) censoArrow.textContent = '▲ Ocultar';
+                if (censoArrow) {
+                    censoArrow.textContent = '▲ Ocultar';
+                    censoArrow.style.background = '#27ae60';
+                }
                 setTimeout(() => {
                     censoFormBody.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }, 100);
             } else {
                 censoFormBody.classList.add('hidden');
-                if (censoArrow) censoArrow.textContent = '▼ Desplegar';
+                if (censoArrow) {
+                    censoArrow.textContent = '▼ Activar';
+                    censoArrow.style.background = '#2980b9';
+                }
             }
         });
     }
@@ -1054,7 +1060,10 @@ function openPlacemarkModal(latlng) {
     const censoArrow = document.getElementById('censo-arrow');
     if (checkCenso) checkCenso.checked = false;
     if (censoBody) censoBody.classList.add('hidden');
-    if (censoArrow) censoArrow.textContent = '▼ Desplegar';
+    if (censoArrow) {
+        censoArrow.textContent = '▼ Activar';
+        censoArrow.style.background = '#2980b9';
+    }
 
     const censoIdCampo = document.getElementById('censo-id-campo');
     if (censoIdCampo) censoIdCampo.value = '';

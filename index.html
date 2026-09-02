@@ -42,7 +42,7 @@
         if ('caches' in window) {
             caches.keys().then(keys => {
                 keys.forEach(k => {
-                    if (k.startsWith('campo-maps-') && !k.includes('-v16')) {
+                    if (k.startsWith('campo-maps-') && !k.includes('-v17')) {
                         console.log('Purging outdated cache:', k);
                         caches.delete(k);
                     }
@@ -52,7 +52,7 @@
     </script>
 
     <!-- App CSS -->
-    <link rel="stylesheet" href="css/style.css?v=16">
+    <link rel="stylesheet" href="css/style.css?v=17">
 </head>
 <body>
 
@@ -367,16 +367,25 @@
                             <button type="button" id="btn-clear-all-photos" style="background: none; border: none; color: #e74c3c; font-size: 11px; cursor: pointer; text-decoration: underline;">Borrar todas</button>
                         </div>
                         <div id="pm-photos-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; max-height: 180px; overflow-y: auto;">
-                            <!-- Dynamic thumbnails -                    <!-- Collapsible Activity: Censo Uso y Usuarios -->
-                    <div style="margin-top: 14px; border: 1px solid rgba(52, 152, 219, 0.4); border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.02);">
-                        <div id="toggle-censo-header" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; cursor: pointer; background: rgba(52, 152, 219, 0.2); user-select: none;">
+                            <!-- Dynamic thumbnails -->
+                        </div>
+                    </div>
+
+                    <!-- Collapsible Activity: Censo Uso y Usuarios -->
+                    <div style="margin-top: 14px; border: 2px solid #3498db; border-radius: 8px; overflow: hidden; background: rgba(52, 152, 219, 0.05); box-shadow: 0 2px 8px rgba(0,0,0,0.25);">
+                        <div id="toggle-censo-header" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; cursor: pointer; background: rgba(52, 152, 219, 0.22); user-select: none;">
                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <input type="checkbox" id="check-enable-censo" style="accent-color: #3498db; width: 18px; height: 18px; pointer-events: none;">
-                                <span style="font-size: 13px; font-weight: 700; color: #3498db;">
-                                    📋 Actividad: Uso y Usuarios del Agua
-                                </span>
+                                <input type="checkbox" id="check-enable-censo" style="accent-color: #3498db; width: 20px; height: 20px; pointer-events: none;">
+                                <div>
+                                    <div style="font-size: 13px; font-weight: 800; color: #3498db; letter-spacing: 0.3px;">
+                                        📋 Actividad: Uso y Usuarios del Agua
+                                    </div>
+                                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">
+                                        Toca aquí para activar y llenar el formulario
+                                    </div>
+                                </div>
                             </div>
-                            <span id="censo-arrow" style="font-size: 11px; color: #3498db; font-weight: bold; background: rgba(52, 152, 219, 0.25); padding: 4px 8px; border-radius: 4px;">▼ Desplegar</span>
+                            <span id="censo-arrow" style="font-size: 11px; color: #ffffff; font-weight: bold; background: #2980b9; padding: 5px 10px; border-radius: 12px; white-space: nowrap;">▼ Activar</span>
                         </div>
 
                         <div id="censo-form-body" class="hidden" style="padding: 12px; background: rgba(0,0,0,0.25);">
@@ -655,13 +664,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- App JS Modules -->
-    <script type="module" src="js/app.js?v=16"></script>
+    <script type="module" src="js/app.js?v=17"></script>
     
     <!-- Service Worker Registration with auto-update -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js?v=16').then(registration => {
+                navigator.serviceWorker.register('./sw.js?v=17').then(registration => {
                     registration.update();
                     console.log('ServiceWorker registered with scope: ', registration.scope);
                 }, err => {

@@ -627,9 +627,11 @@ function setupPlacemarks() {
         });
     }
 
-    // In-App Continuous Burst Camera & Gallery Selector
+    // In-App Continuous Burst Camera, Native Camera & Gallery Selector
     const btnOpenCamera = document.getElementById('btn-open-camera');
+    const btnNativeCamera = document.getElementById('btn-native-camera');
     const btnPickGallery = document.getElementById('btn-pick-gallery');
+    const photoNativeInput = document.getElementById('placemark-photo-native');
     const modalCamera = document.getElementById('modal-camera');
     const cameraVideo = document.getElementById('camera-video');
     const btnShutter = document.getElementById('btn-shutter');
@@ -795,7 +797,18 @@ function setupPlacemarks() {
         btnOpenCamera.addEventListener('click', startInAppCamera);
     }
     if (btnShutter) {
-        btnShutter.addEventListener('click', captureCameraFrame);
+        btnShutter.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            captureCameraFrame();
+        });
+    }
+    // Tocar el visor de video también captura la foto
+    if (cameraVideo) {
+        cameraVideo.addEventListener('click', (e) => {
+            e.preventDefault();
+            captureCameraFrame();
+        });
     }
     if (btnCameraDone) {
         btnCameraDone.addEventListener('click', () => {
@@ -807,70 +820,87 @@ function setupPlacemarks() {
         btnCloseCamera.addEventListener('click', stopInAppCamera);
     }
 
-    // Gallery Picker button (Multiple photos at once)
+    // Botón para activar directamente la cámara nativa del teléfono (iOS / Android)
+    if (btnNativeCamera && photoNativeInput) {
+        btnNativeCamera.addEventListener('click', () => {
+            photoNativeInput.click();
+        });
+    }
+
+    // Botón para abrir galería y seleccionar fotos existentes
     if (btnPickGallery && photoInput) {
         btnPickGallery.addEventListener('click', () => {
             photoInput.click();
         });
     }
+
+    // Procesador unificado para estampar coordenadas y metadatos en fotos subidas
+    async function processPhotoFiles(files) {
+        if (!files || files.length === 0) return;
+        try {
+            showToast(`Procesando ${files.length} foto(s)...`);
+
+            const stampToggle = document.getElementById('pm-stamp-toggle');
+            const isStampEnabled = stampToggle ? stampToggle.checked : true;
+            const projectName = state.currentProjectName || 'CampoMaps';
+
+            let targetLat = null, targetLng = null, targetAlt = null, targetAcc = null;
+            if (state.gps && state.gps.currentPosition) {
+                targetLat = state.gps.currentPosition.lat;
+                targetLng = state.gps.currentPosition.lng;
+                targetAlt = state.gps.currentPosition.altitude;
+                targetAcc = state.gps.currentPosition.accuracy;
+            } else if (state.mapEngine) {
+                const center = state.mapEngine.getCenter();
+                targetLat = center.lat;
+                targetLng = center.lng;
+            }
+
+            const currentHeading = (state.gps && state.gps.getHeading) ? state.gps.getHeading() : null;
+            const cardinal = currentHeading !== null ? GPSTracker.headingToCardinal(currentHeading) : '';
+            const defaultHeadingLabel = currentHeading !== null 
+                ? `${Math.round(currentHeading).toString().padStart(3, '0')}° ${cardinal}`
+                : '';
+
+            const stampOptions = {
+                enabled: isStampEnabled,
+                projectName: projectName || 'CampoMaps',
+                lat: targetLat,
+                lng: targetLng,
+                altitude: targetAlt,
+                accuracy: targetAcc,
+                heading: currentHeading,
+                headingLabel: defaultHeadingLabel,
+                timestamp: new Date()
+            };
+
+            for (const file of files) {
+                const base64 = await PlacemarkManager.readPhoto(file, stampOptions);
+                currentPhotos.push({
+                    url: base64,
+                    heading: currentHeading,
+                    headingLabel: defaultHeadingLabel
+                });
+            }
+            renderPhotosGrid();
+            showToast(`📷 ${currentPhotos.length} foto(s) adjunta(s)`);
+        } catch (err) {
+            console.error("Error al procesar fotos:", err);
+            showToast("⚠️ Error al procesar fotos");
+        }
+    }
     
     if (photoInput) {
         photoInput.addEventListener('change', async (e) => {
-            const files = Array.from(e.target.files || []);
-            if (files.length > 0) {
-                try {
-                    showToast(`Procesando ${files.length} foto(s)...`);
+            await processPhotoFiles(Array.from(e.target.files || []));
+            photoInput.value = '';
+        });
+    }
 
-                    const stampToggle = document.getElementById('pm-stamp-toggle');
-                    const isStampEnabled = stampToggle ? stampToggle.checked : true;
-                    const projectName = state.currentProjectName || 'CampoMaps';
-
-                    let targetLat = null, targetLng = null, targetAlt = null, targetAcc = null;
-                    if (state.gps && state.gps.currentPosition) {
-                        targetLat = state.gps.currentPosition.lat;
-                        targetLng = state.gps.currentPosition.lng;
-                        targetAlt = state.gps.currentPosition.altitude;
-                        targetAcc = state.gps.currentPosition.accuracy;
-                    } else if (state.mapEngine) {
-                        const center = state.mapEngine.getCenter();
-                        targetLat = center.lat;
-                        targetLng = center.lng;
-                    }
-
-                    const currentHeading = (state.gps && state.gps.getHeading) ? state.gps.getHeading() : null;
-                    const cardinal = currentHeading !== null ? GPSTracker.headingToCardinal(currentHeading) : '';
-                    const defaultHeadingLabel = currentHeading !== null 
-                        ? `${Math.round(currentHeading).toString().padStart(3, '0')}° ${cardinal}`
-                        : '';
-
-                    const stampOptions = {
-                        enabled: isStampEnabled,
-                        projectName: projectName || 'CampoMaps',
-                        lat: targetLat,
-                        lng: targetLng,
-                        altitude: targetAlt,
-                        accuracy: targetAcc,
-                        heading: currentHeading,
-                        headingLabel: defaultHeadingLabel,
-                        timestamp: new Date()
-                    };
-
-                    for (const file of files) {
-                        const base64 = await PlacemarkManager.readPhoto(file, stampOptions);
-                        currentPhotos.push({
-                            url: base64,
-                            heading: currentHeading,
-                            headingLabel: defaultHeadingLabel
-                        });
-                    }
-                    renderPhotosGrid();
-                    showToast(`📷 ${currentPhotos.length} foto(s) adjunta(s)`);
-                } catch (err) {
-                    console.error("Error al leer fotos:", err);
-                    showToast("⚠️ Error al procesar fotos");
-                }
-                photoInput.value = '';
-            }
+    if (photoNativeInput) {
+        photoNativeInput.addEventListener('change', async (e) => {
+            await processPhotoFiles(Array.from(e.target.files || []));
+            photoNativeInput.value = '';
         });
     }
     
@@ -878,6 +908,7 @@ function setupPlacemarks() {
         btnClearPhotos.addEventListener('click', () => {
             currentPhotos = [];
             if (photoInput) photoInput.value = '';
+            if (photoNativeInput) photoNativeInput.value = '';
             renderPhotosGrid();
             showToast('Fotos removidas');
         });
@@ -1030,7 +1061,12 @@ function setupPlacemarks() {
 
     // Make renderPhotosGrid accessible to modal open/close
     window.__campoMapsRenderPhotos = renderPhotosGrid;
-    window.__campoMapsClearPhotos = () => { currentPhotos = []; renderPhotosGrid(); };
+    window.__campoMapsClearPhotos = () => { 
+        currentPhotos = []; 
+        if (photoInput) photoInput.value = '';
+        if (photoNativeInput) photoNativeInput.value = '';
+        renderPhotosGrid(); 
+    };
     window.__campoMapsGetPhotos = () => [...currentPhotos];
 }
 

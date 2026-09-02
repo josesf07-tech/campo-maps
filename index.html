@@ -42,7 +42,7 @@
         if ('caches' in window) {
             caches.keys().then(keys => {
                 keys.forEach(k => {
-                    if (k.startsWith('campo-maps-') && !k.includes('-v17')) {
+                    if (k.startsWith('campo-maps-') && !k.includes('-v18')) {
                         console.log('Purging outdated cache:', k);
                         caches.delete(k);
                     }
@@ -52,7 +52,7 @@
     </script>
 
     <!-- App CSS -->
-    <link rel="stylesheet" href="css/style.css?v=17">
+    <link rel="stylesheet" href="css/style.css?v=18">
 </head>
 <body>
 
@@ -342,13 +342,17 @@
                         <div class="icon-option" data-icon="camera">📷</div>
                     </div>
                     
+                    <input type="file" id="placemark-photo-native" accept="image/*" capture="environment" style="display: none;">
                     <input type="file" id="placemark-photo-input" accept="image/*" multiple style="display: none;">
-                    <div style="display: flex; gap: 8px; margin-top: 10px;">
-                        <button type="button" id="btn-open-camera" class="btn-primary" style="flex: 1.3; display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: 700; background: var(--accent-primary); color: #111; padding: 10px 8px; font-size: 12px; border-radius: 8px; border: none; cursor: pointer;">
-                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                            <span>📸 Tomar Fotos (Ráfaga)</span>
+                    <div style="display: grid; grid-template-columns: 1.25fr 1.05fr 0.8fr; gap: 6px; margin-top: 10px;">
+                        <button type="button" id="btn-open-camera" class="btn-primary" style="display: flex; align-items: center; justify-content: center; gap: 4px; font-weight: 700; background: var(--accent-primary); color: #111; padding: 10px 4px; font-size: 11px; border-radius: 8px; border: none; cursor: pointer;">
+                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                            <span>📸 En Vivo (Ráfaga)</span>
                         </button>
-                        <button type="button" id="btn-pick-gallery" class="btn-outline" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 11px; padding: 10px 8px; border-radius: 8px; cursor: pointer;">
+                        <button type="button" id="btn-native-camera" class="btn-secondary" style="display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; padding: 10px 4px; border-radius: 8px; cursor: pointer; border: 1px solid #3498db; color: #3498db; font-weight: 700;">
+                            <span>📷 Cámara del Teléfono</span>
+                        </button>
+                        <button type="button" id="btn-pick-gallery" class="btn-outline" style="display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; padding: 10px 4px; border-radius: 8px; cursor: pointer;">
                             <span>📁 Galería</span>
                         </button>
                     </div>
@@ -612,40 +616,45 @@
         </div>
 
         <!-- Fullscreen Continuous In-App Camera Viewfinder Modal -->
-        <div id="modal-camera" class="modal hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 99999; background: #000; padding: 0; margin: 0;">
+        <div id="modal-camera" class="modal hidden" style="position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; background: #000; padding: 0; margin: 0; overflow: hidden;">
             <div style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
                 <!-- Top HUD -->
-                <div style="position: absolute; top: calc(env(safe-area-inset-top, 16px) + 12px); left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+                <div style="position: absolute; top: calc(env(safe-area-inset-top, 16px) + 12px); left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: center; z-index: 100;">
                     <div id="camera-heading-badge" style="background: rgba(0,0,0,0.65); color: #2ecc71; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; border: 1px solid #2ecc71; backdrop-filter: blur(6px); display: flex; align-items: center; gap: 6px;">
                         <span>🧭</span> <span id="camera-heading-val">000° N</span>
                     </div>
-                    <button id="btn-close-camera" type="button" style="background: rgba(0,0,0,0.65); color: #fff; border: 1px solid rgba(255,255,255,0.4); border-radius: 50%; width: 40px; height: 40px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px);">
+                    <button id="btn-close-camera" type="button" style="background: rgba(0,0,0,0.65); color: #fff; border: 1px solid rgba(255,255,255,0.4); border-radius: 50%; width: 44px; height: 44px; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px);">
                         ✕
                     </button>
                 </div>
 
                 <!-- Video Viewfinder Feed -->
                 <div style="width: 100%; height: 100%; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; background: #000;">
-                    <video id="camera-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+                    <video id="camera-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;"></video>
                     <div id="camera-flash" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.12s ease-out;"></div>
                 </div>
 
                 <!-- Bottom Shutter & Action Bar -->
-                <div style="position: absolute; bottom: calc(env(safe-area-inset-bottom, 16px) + 20px); left: 0; right: 0; display: flex; justify-content: space-around; align-items: center; z-index: 10; padding: 0 20px;">
-                    <!-- Thumbnails / Count badge -->
-                    <div id="camera-photos-count" style="background: rgba(0,0,0,0.65); color: #fff; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(6px);">
-                        📷 <span id="camera-count-num">0</span> fotos
+                <div style="position: absolute; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; z-index: 9999999; padding-bottom: max(25px, calc(env(safe-area-inset-bottom, 20px) + 10px)); background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.45) 60%, transparent 100%); pointer-events: auto;">
+                    <div style="font-size: 11px; color: rgba(255,255,255,0.85); font-weight: 600; margin-bottom: 10px; text-shadow: 0 1px 4px #000; pointer-events: none;">
+                        Toca el botón circular o la pantalla para tomar foto
                     </div>
+                    <div style="width: 100%; display: flex; justify-content: space-around; align-items: center; padding: 0 20px;">
+                        <!-- Thumbnails / Count badge -->
+                        <div id="camera-photos-count" style="background: rgba(0,0,0,0.65); color: #fff; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(6px);">
+                            📷 <span id="camera-count-num">0</span> fotos
+                        </div>
 
-                    <!-- Big White/Green Shutter Button -->
-                    <button id="btn-shutter" type="button" style="width: 76px; height: 76px; border-radius: 50%; background: #ffffff; border: 4px solid #2ecc71; box-shadow: 0 0 20px rgba(46,204,113,0.7); cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; padding: 0;">
-                        <div style="width: 60px; height: 60px; border-radius: 50%; background: #ffffff; border: 2px solid #222;"></div>
-                    </button>
+                        <!-- Big White/Green Shutter Button -->
+                        <button id="btn-shutter" type="button" aria-label="Tomar fotografía" style="width: 78px; height: 78px; min-width: 78px; min-height: 78px; border-radius: 50%; background: #ffffff; border: 5px solid #2ecc71; box-shadow: 0 0 25px rgba(46,204,113,0.9); cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; padding: 0; touch-action: manipulation; -webkit-tap-highlight-color: transparent;">
+                            <div style="width: 60px; height: 60px; border-radius: 50%; background: #ffffff; border: 3px solid #222;"></div>
+                        </button>
 
-                    <!-- Done Button -->
-                    <button id="btn-camera-done" type="button" style="background: #2ecc71; color: #111; font-weight: 800; border: none; padding: 10px 18px; border-radius: 24px; font-size: 14px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
-                        Listo ✔
-                    </button>
+                        <!-- Done Button -->
+                        <button id="btn-camera-done" type="button" style="background: #2ecc71; color: #111; font-weight: 800; border: none; padding: 12px 20px; border-radius: 24px; font-size: 14px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.6);">
+                            Listo ✔
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -664,13 +673,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- App JS Modules -->
-    <script type="module" src="js/app.js?v=17"></script>
+    <script type="module" src="js/app.js?v=18"></script>
     
     <!-- Service Worker Registration with auto-update -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js?v=17').then(registration => {
+                navigator.serviceWorker.register('./sw.js?v=18').then(registration => {
                     registration.update();
                     console.log('ServiceWorker registered with scope: ', registration.scope);
                 }, err => {

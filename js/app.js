@@ -40,6 +40,8 @@ const state = {
     tileDownloader: null,
     trackTimer: null,
     trackStartTime: null,
+    lastLoadedGeoPdfBounds: null,
+    lastLoadedGeoPdfName: '',
 };
 
 // ========== INITIALIZATION ==========
@@ -1491,6 +1493,20 @@ function setupCalibration() {
                 if (modal) modal.classList.add('hidden');
                 
                 showToast('🗺️ ¡Mapa GeoPDF georreferenciado cargado con éxito!');
+
+                state.lastLoadedGeoPdfBounds = currentLoadedResult.bounds;
+                state.lastLoadedGeoPdfName = imageFile ? imageFile.name : 'Mapa GeoPDF';
+                if (state.tileDownloader) {
+                    state.tileDownloader.activeGeoPdfBounds = currentLoadedResult.bounds;
+                    state.tileDownloader.activeGeoPdfName = state.lastLoadedGeoPdfName;
+                }
+
+                // Prompt smart 2km satellite buffer download
+                setTimeout(() => {
+                    if (state.tileDownloader) {
+                        state.tileDownloader.promptAndDownloadGeoPdfBuffer(currentLoadedResult.bounds, state.lastLoadedGeoPdfName);
+                    }
+                }, 600);
             } catch (err) {
                 console.error('Error al guardar GeoPDF:', err);
                 showToast('❌ Error al guardar mapa: ' + err.message);
@@ -1729,6 +1745,20 @@ function setupCalibration() {
                 if (calPoints) calPoints.innerHTML = '';
                 
                 showToast('🗺️ Mapa calibrado y cargado con éxito');
+
+                state.lastLoadedGeoPdfBounds = bounds;
+                state.lastLoadedGeoPdfName = imageFile ? imageFile.name : 'Plano Calibrado';
+                if (state.tileDownloader) {
+                    state.tileDownloader.activeGeoPdfBounds = bounds;
+                    state.tileDownloader.activeGeoPdfName = state.lastLoadedGeoPdfName;
+                }
+
+                // Prompt smart 2km satellite buffer download
+                setTimeout(() => {
+                    if (state.tileDownloader) {
+                        state.tileDownloader.promptAndDownloadGeoPdfBuffer(bounds, state.lastLoadedGeoPdfName);
+                    }
+                }, 600);
             } catch (e) {
                 console.error('Calibration error:', e);
                 showToast('❌ Error al calibrar: ' + e.message);
@@ -1907,7 +1937,11 @@ function setupMapControls() {
         btnOpenOfflineDl.addEventListener('click', () => {
             closeAllPanels();
             if (state.tileDownloader) {
-                state.tileDownloader.showDownloadDialog(state.mapEngine.baseLayerType || 'satellite');
+                state.tileDownloader.showDownloadDialog(
+                    state.mapEngine.baseLayerType || 'satellite',
+                    state.lastLoadedGeoPdfBounds,
+                    state.lastLoadedGeoPdfName
+                );
             }
         });
     }
@@ -1947,6 +1981,18 @@ function setupSettings() {
         });
     }
 
+    // Auto download 2km satellite buffer on GeoPDF load
+    const toggleAutoDl = document.getElementById('toggle-auto-dl-geopdf');
+    if (toggleAutoDl) {
+        toggleAutoDl.addEventListener('change', async () => {
+            await saveSetting('autoDownloadSatelliteBuffer', toggleAutoDl.checked);
+            showToast(toggleAutoDl.checked ? '🛰️ Auto-descarga de 2 km satélite activada' : 'Auto-descarga satelital desactivada');
+        });
+    }
+
+    // Expose saveSetting globally for modal quick toggles
+    window.__campoMapsSaveSetting = saveSetting;
+
     // Load saved settings
     (async () => {
         try {
@@ -1958,6 +2004,10 @@ function setupSettings() {
             const savedProject = await getSetting('projectName');
             if (savedProject && savedProject.value && inputProjectName) {
                 inputProjectName.value = savedProject.value;
+            }
+            const savedAutoDl = await getSetting('autoDownloadSatelliteBuffer');
+            if (savedAutoDl && savedAutoDl.value !== undefined && toggleAutoDl) {
+                toggleAutoDl.checked = !!savedAutoDl.value;
             }
         } catch (e) {
             console.warn('Error cargando ajustes:', e);
@@ -2129,6 +2179,12 @@ async function switchProject(projectId) {
         if (mapData && state.mapEngine) {
             state.mapEngine.addImageOverlay(mapData.id, mapData.dataUrl, mapData.bounds, { opacity: mapData.opacity || 0.85 });
             state.mapEngine.fitBounds(mapData.bounds);
+            state.lastLoadedGeoPdfBounds = mapData.bounds;
+            state.lastLoadedGeoPdfName = mapData.name || 'Plano GeoPDF';
+            if (state.tileDownloader) {
+                state.tileDownloader.activeGeoPdfBounds = mapData.bounds;
+                state.tileDownloader.activeGeoPdfName = state.lastLoadedGeoPdfName;
+            }
         }
     }
 

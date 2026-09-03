@@ -42,7 +42,7 @@
         if ('caches' in window) {
             caches.keys().then(keys => {
                 keys.forEach(k => {
-                    if (k.startsWith('campo-maps-') && !k.includes('-v21')) {
+                    if (k.startsWith('campo-maps-') && !k.includes('-v22')) {
                         console.log('Purging outdated cache:', k);
                         caches.delete(k);
                     }
@@ -52,7 +52,7 @@
     </script>
 
     <!-- App CSS -->
-    <link rel="stylesheet" href="css/style.css?v=21">
+    <link rel="stylesheet" href="css/style.css?v=22">
 </head>
 <body>
 
@@ -249,6 +249,16 @@
                         <span>Modo Claro</span>
                         <label class="switch">
                             <input type="checkbox" id="toggle-light-mode">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <h3>Mapas Offline y GeoPDF</h3>
+                    <div class="setting-item">
+                        <span>Descargar 2 km Satélite al Importar GeoPDF</span>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-auto-dl-geopdf">
                             <span class="slider"></span>
                         </label>
                     </div>
@@ -708,13 +718,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- App JS Modules -->
-    <script type="module" src="js/app.js?v=21"></script>
+    <script type="module" src="js/app.js?v=22"></script>
     
     <!-- Service Worker Registration with auto-update -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js?v=21').then(registration => {
+                navigator.serviceWorker.register('./sw.js?v=22').then(registration => {
                     registration.update();
                     console.log('ServiceWorker registered with scope: ', registration.scope);
                 }, err => {

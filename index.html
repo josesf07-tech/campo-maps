@@ -42,7 +42,7 @@
         if ('caches' in window) {
             caches.keys().then(keys => {
                 keys.forEach(k => {
-                    if (k.startsWith('campo-maps-') && !k.includes('-v19')) {
+                    if (k.startsWith('campo-maps-') && !k.includes('-v20')) {
                         console.log('Purging outdated cache:', k);
                         caches.delete(k);
                     }
@@ -52,7 +52,7 @@
     </script>
 
     <!-- App CSS -->
-    <link rel="stylesheet" href="css/style.css?v=19">
+    <link rel="stylesheet" href="css/style.css?v=20">
 </head>
 <body>
 
@@ -633,6 +633,13 @@
                 <!-- Video Viewfinder Feed -->
                 <div style="width: 100%; height: 100%; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; background: #000;">
                     <video id="camera-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;"></video>
+                    <!-- Professional 3x3 Rule-of-Thirds Grid Overlay -->
+                    <div class="camera-grid-overlay">
+                        <div class="grid-line grid-line-h1"></div>
+                        <div class="grid-line grid-line-h2"></div>
+                        <div class="grid-line grid-line-v1"></div>
+                        <div class="grid-line grid-line-v2"></div>
+                    </div>
                     <div id="camera-flash" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.12s ease-out;"></div>
                 </div>
 
@@ -675,13 +682,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- App JS Modules -->
-    <script type="module" src="js/app.js?v=19"></script>
+    <script type="module" src="js/app.js?v=20"></script>
     
     <!-- Service Worker Registration with auto-update -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js?v=19').then(registration => {
+                navigator.serviceWorker.register('./sw.js?v=20').then(registration => {
                     registration.update();
                     console.log('ServiceWorker registered with scope: ', registration.scope);
                 }, err => {

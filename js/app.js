@@ -696,101 +696,112 @@ function setupPlacemarks() {
 
     async function captureCameraFrame() {
         if (!cameraVideo || !cameraStream) return;
-
-        // Visual flash
-        if (cameraFlash) {
-            cameraFlash.style.opacity = '0.9';
-            setTimeout(() => { cameraFlash.style.opacity = '0'; }, 100);
-        }
-
-        if (navigator.vibrate) {
-            try { navigator.vibrate(50); } catch(e) {}
-        }
-
-        const videoW = cameraVideo.videoWidth || 1280;
-        const videoH = cameraVideo.videoHeight || 720;
-
-        const offscreenCanvas = document.createElement('canvas');
-        offscreenCanvas.width = videoW;
-        offscreenCanvas.height = videoH;
-        const ctx = offscreenCanvas.getContext('2d');
-        ctx.drawImage(cameraVideo, 0, 0, videoW, videoH);
-
-        // Technical Watermark Stamping
-        const stampToggle = document.getElementById('pm-stamp-toggle');
-        const isStampEnabled = stampToggle ? stampToggle.checked : true;
-        const projectName = state.currentProjectName || 'CampoMaps';
-
-        let targetLat = null, targetLng = null, targetAlt = null, targetAcc = null;
-        if (state.gps && state.gps.currentPosition) {
-            targetLat = state.gps.currentPosition.lat;
-            targetLng = state.gps.currentPosition.lng;
-            targetAlt = state.gps.currentPosition.altitude;
-            targetAcc = state.gps.currentPosition.accuracy;
-        } else if (state.mapEngine) {
-            const center = state.mapEngine.getCenter();
-            targetLat = center.lat;
-            targetLng = center.lng;
-        }
-
-        const currentHeading = (state.gps && state.gps.getHeading) ? state.gps.getHeading() : null;
-        const cardinal = currentHeading !== null ? GPSTracker.headingToCardinal(currentHeading) : '';
-        const defaultHeadingLabel = currentHeading !== null 
-            ? `${Math.round(currentHeading).toString().padStart(3, '0')}° ${cardinal}`
-            : '';
-
-        if (isStampEnabled && targetLat && targetLng) {
-            const bannerH = Math.max(70, Math.round(videoH * 0.11));
-            const bannerY = videoH - bannerH;
-
-            // Draw dark background banner
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-            ctx.fillRect(0, bannerY, videoW, bannerH);
-
-            // Accent border
-            ctx.fillStyle = '#2ecc71';
-            ctx.fillRect(0, bannerY, videoW, Math.max(3, Math.round(bannerH * 0.04)));
-
-            const fontSize = Math.max(12, Math.round(bannerH * 0.22));
-            ctx.font = `bold ${fontSize}px sans-serif`;
-            ctx.textBaseline = 'middle';
-
-            const d = new Date();
-            const dateStr = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`;
-
-            // Line 1: Project, Date, Heading
-            ctx.fillStyle = '#ffffff';
-            let line1 = `PROYECTO: ${projectName.toUpperCase()} | 📅 ${dateStr}`;
-            if (currentHeading !== null) {
-                line1 += ` | 🧭 Sentido: ${defaultHeadingLabel}`;
+        try {
+            // Visual flash
+            if (cameraFlash) {
+                cameraFlash.style.opacity = '0.9';
+                setTimeout(() => { cameraFlash.style.opacity = '0'; }, 100);
             }
-            ctx.fillText(line1, 15, bannerY + bannerH * 0.28);
 
-            // Line 2: MAGNA-SIRGAS Coordinates
-            const magna = toMagnaSirgas(targetLat, targetLng);
-            ctx.fillStyle = '#2ecc71';
-            const line2 = `MAGNA Origen Nal. (EPSG:9377): N: ${magna.northing.toLocaleString('es-CO', {maximumFractionDigits:2})} m | E: ${magna.easting.toLocaleString('es-CO', {maximumFractionDigits:2})} m`;
-            ctx.fillText(line2, 15, bannerY + bannerH * 0.58);
+            if (navigator.vibrate) {
+                try { navigator.vibrate(50); } catch(e) {}
+            }
 
-            // Line 3: WGS84 + Precision
-            ctx.fillStyle = '#e0e0e0';
-            let line3 = `WGS84: ${targetLat.toFixed(6)}°, ${targetLng.toFixed(6)}°`;
-            if (targetAlt) line3 += ` | ⛰️ Alt: ${Math.round(targetAlt)}m`;
-            if (targetAcc) line3 += ` | 🎯 Prec: ±${Math.round(targetAcc)}m`;
-            ctx.fillText(line3, 15, bannerY + bannerH * 0.85);
+            const videoW = cameraVideo.videoWidth || 1280;
+            const videoH = cameraVideo.videoHeight || 720;
+
+            const offscreenCanvas = document.createElement('canvas');
+            offscreenCanvas.width = videoW;
+            offscreenCanvas.height = videoH;
+            const ctx = offscreenCanvas.getContext('2d');
+            ctx.drawImage(cameraVideo, 0, 0, videoW, videoH);
+
+            // Technical Watermark Stamping
+            const stampToggle = document.getElementById('pm-stamp-toggle');
+            const isStampEnabled = stampToggle ? stampToggle.checked : true;
+            const projectName = state.currentProjectName || 'CampoMaps';
+
+            let targetLat = null, targetLng = null, targetAlt = null, targetAcc = null;
+            if (state.gps && state.gps.currentPosition) {
+                targetLat = state.gps.currentPosition.lat;
+                targetLng = state.gps.currentPosition.lng;
+                targetAlt = state.gps.currentPosition.altitude;
+                targetAcc = state.gps.currentPosition.accuracy;
+            } else if (state.mapEngine) {
+                const center = state.mapEngine.getCenter();
+                targetLat = center.lat;
+                targetLng = center.lng;
+            }
+
+            const currentHeading = (state.gps && state.gps.getHeading) ? state.gps.getHeading() : null;
+            const cardinal = currentHeading !== null ? GPSTracker.headingToCardinal(currentHeading) : '';
+            const defaultHeadingLabel = currentHeading !== null 
+                ? `${Math.round(currentHeading).toString().padStart(3, '0')}° ${cardinal}`
+                : '';
+
+            if (isStampEnabled && targetLat && targetLng) {
+                try {
+                    const bannerH = Math.max(70, Math.round(videoH * 0.11));
+                    const bannerY = videoH - bannerH;
+
+                    // Draw dark background banner
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
+                    ctx.fillRect(0, bannerY, videoW, bannerH);
+
+                    // Accent border
+                    ctx.fillStyle = '#2ecc71';
+                    ctx.fillRect(0, bannerY, videoW, Math.max(3, Math.round(bannerH * 0.04)));
+
+                    const fontSize = Math.max(12, Math.round(bannerH * 0.22));
+                    ctx.font = `bold ${fontSize}px sans-serif`;
+                    ctx.textBaseline = 'middle';
+
+                    const d = new Date();
+                    const dateStr = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`;
+
+                    // Line 1: Project, Date, Heading
+                    ctx.fillStyle = '#ffffff';
+                    let line1 = `PROYECTO: ${projectName.toUpperCase()} | 📅 ${dateStr}`;
+                    if (currentHeading !== null) {
+                        line1 += ` | 🧭 Sentido: ${defaultHeadingLabel}`;
+                    }
+                    ctx.fillText(line1, 15, bannerY + bannerH * 0.28);
+
+                    // Line 2: MAGNA-SIRGAS Coordinates
+                    const magna = toMagnaSirgas(targetLat, targetLng);
+                    ctx.fillStyle = '#2ecc71';
+                    const esteFormatted = (magna && magna.este !== undefined) ? Math.round(magna.este).toLocaleString('es-CO') : '--';
+                    const norteFormatted = (magna && magna.norte !== undefined) ? Math.round(magna.norte).toLocaleString('es-CO') : '--';
+                    const line2 = `MAGNA Origen Nal. (EPSG:9377): N: ${norteFormatted} m | E: ${esteFormatted} m`;
+                    ctx.fillText(line2, 15, bannerY + bannerH * 0.58);
+
+                    // Line 3: WGS84 + Precision
+                    ctx.fillStyle = '#e0e0e0';
+                    let line3 = `WGS84: ${targetLat.toFixed(6)}°, ${targetLng.toFixed(6)}°`;
+                    if (targetAlt) line3 += ` | ⛰️ Alt: ${Math.round(targetAlt)}m`;
+                    if (targetAcc) line3 += ` | 🎯 Prec: ±${Math.round(targetAcc)}m`;
+                    ctx.fillText(line3, 15, bannerY + bannerH * 0.85);
+                } catch (stampErr) {
+                    console.warn("Error estampando datos en foto de ráfaga:", stampErr);
+                }
+            }
+
+            const dataUrl = offscreenCanvas.toDataURL('image/jpeg', 0.85);
+            currentPhotos.push({
+                url: dataUrl,
+                heading: currentHeading,
+                headingLabel: defaultHeadingLabel
+            });
+
+            if (cameraCountNum) {
+                cameraCountNum.textContent = currentPhotos.length;
+            }
+            renderPhotosGrid();
+            showToast(`📸 Foto #${currentPhotos.length} capturada (${defaultHeadingLabel || 'orientada'})`);
+        } catch (err) {
+            console.error("Error al capturar frame de cámara:", err);
+            showToast("⚠️ Error al capturar foto");
         }
-
-        const dataUrl = offscreenCanvas.toDataURL('image/jpeg', 0.82);
-        currentPhotos.push({
-            url: dataUrl,
-            heading: currentHeading,
-            headingLabel: defaultHeadingLabel
-        });
-
-        if (cameraCountNum) {
-            cameraCountNum.textContent = currentPhotos.length;
-        }
-        showToast(`📸 Foto #${currentPhotos.length} capturada (${defaultHeadingLabel || 'orientada'})`);
     }
 
     if (btnOpenCamera) {
@@ -923,9 +934,12 @@ function setupPlacemarks() {
         if (details) {
             const badge = details.querySelector('.censo-badge');
             if (badge) {
-                badge.textContent = count === 1 ? '1 sel.' : `${count} sel.`;
-                badge.style.background = count > 0 ? '#27ae60' : 'rgba(255, 255, 255, 0.1)';
-                badge.style.color = count > 0 ? '#ffffff' : 'var(--text-secondary)';
+                badge.textContent = count > 0 ? `✓ ${count} sel.` : '0 sel.';
+                if (count > 0) {
+                    badge.classList.add('has-selection');
+                } else {
+                    badge.classList.remove('has-selection');
+                }
             }
         }
     };

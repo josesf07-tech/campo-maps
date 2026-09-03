@@ -1,22 +1,41 @@
-/* Custom Properties / Variables */
+/* ==========================================================================
+   CampoMaps Design System - High-Precision Modern GIS Theme
+   ========================================================================== */
 :root {
-    /* Colors - Dark Theme (Default) */
-    --bg-base: #1a1a2e;
-    --bg-surface: #16213e;
-    --bg-overlay: rgba(26, 26, 46, 0.85);
+    /* Colors - Deep Slate Field Theme */
+    --bg-base: #0a0f1d;
+    --bg-surface: #111a2e;
+    --bg-surface-elevated: #16223b;
+    --bg-overlay: rgba(11, 18, 33, 0.88);
+    --bg-glass: rgba(17, 26, 46, 0.75);
     
-    --text-primary: #ffffff;
-    --text-secondary: #a0aabf;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
     
-    --accent-primary: #2ecc71;
-    --accent-primary-hover: #27ae60;
-    --accent-secondary: #0f9b0f;
+    /* Accents & Status */
+    --accent-primary: #10b981;        /* Emerald 500 */
+    --accent-primary-hover: #059669;  /* Emerald 600 */
+    --accent-primary-light: #34d399;  /* Emerald 400 */
+    --accent-secondary: #0ea5e9;      /* Sky 500 */
+    --accent-azure: #38bdf8;          /* Sky 400 */
+    --accent-indigo: #6366f1;
     
-    --danger: #e74c3c;
-    --danger-hover: #c0392b;
-    --warning: #f1c40f;
+    --danger: #ef4444;                /* Red 500 */
+    --danger-hover: #dc2626;
+    --warning: #f59e0b;               /* Amber 500 */
     
-    --border-color: #2c3e50;
+    /* Borders & Glass Dividers */
+    --border-color: rgba(255, 255, 255, 0.09);
+    --border-color-focus: rgba(56, 189, 248, 0.55);
+    --border-color-emerald: rgba(16, 185, 129, 0.45);
+    
+    /* Elevation & Glows */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 8px 24px -4px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 16px 40px -8px rgba(0, 0, 0, 0.7);
+    --shadow-glow-emerald: 0 0 20px rgba(16, 185, 129, 0.4);
+    --shadow-glow-azure: 0 0 20px rgba(14, 165, 233, 0.4);
     
     /* Spacing */
     --spacing-xs: 4px;
@@ -26,39 +45,47 @@
     --spacing-xl: 32px;
     
     /* UI Sizes */
-    --nav-height: calc(60px + env(safe-area-inset-bottom, 0px));
-    --top-bar-height: calc(50px + env(safe-area-inset-top, 0px));
-    --panel-width: 300px;
-    --touch-target: 44px;
+    --nav-height: calc(64px + env(safe-area-inset-bottom, 0px));
+    --top-bar-height: calc(52px + env(safe-area-inset-top, 0px));
+    --panel-width: 320px;
+    --touch-target: 46px;
     
     /* Border Radius */
-    --radius-sm: 4px;
-    --radius-md: 8px;
-    --radius-lg: 16px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
     --radius-pill: 9999px;
     
     /* Typography */
-    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --font-xs: 0.75rem;
     --font-sm: 0.875rem;
     --font-md: 1rem;
     --font-lg: 1.25rem;
     --font-xl: 1.5rem;
     
     /* Transitions */
-    --transition-fast: 0.2s ease;
-    --transition-normal: 0.3s ease;
+    --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Light Theme Overrides */
 body.light-mode {
-    --bg-base: #f5f6fa;
+    --bg-base: #f1f5f9;
     --bg-surface: #ffffff;
-    --bg-overlay: rgba(255, 255, 255, 0.85);
+    --bg-surface-elevated: #f8fafc;
+    --bg-overlay: rgba(255, 255, 255, 0.92);
+    --bg-glass: rgba(255, 255, 255, 0.85);
     
-    --text-primary: #2f3640;
-    --text-secondary: #718093;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
     
-    --border-color: #dcdde1;
+    --border-color: #cbd5e1;
+    --border-color-focus: rgba(14, 165, 233, 0.6);
+    --border-color-emerald: rgba(16, 185, 129, 0.6);
 }
 
 /* Reset & Base Styles */
@@ -78,6 +105,7 @@ body, html {
     color: var(--text-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
 #app-container {
@@ -90,9 +118,10 @@ body, html {
 
 /* Typography */
 h1, h2, h3, h4, h5, h6 {
-    font-weight: 600;
+    font-weight: 700;
     margin-bottom: var(--spacing-sm);
     color: var(--text-primary);
+    letter-spacing: -0.01em;
 }
 
 p {
@@ -108,7 +137,7 @@ p {
     width: 100%;
     height: 100%;
     z-index: 1;
-    background-color: #2c3e50; /* Fallback before tiles load */
+    background-color: #0b1325;
 }
 
 /* Override Leaflet Controls Z-index to fit within our shell */
@@ -117,21 +146,24 @@ p {
     z-index: 500;
 }
 
-/* Top Info Bar */
+/* ==========================================================================
+   Top Info Bar - High-Tech Telemetry HUD
+   ========================================================================== */
 #top-info-bar {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
-    background-color: var(--bg-overlay);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    padding: env(safe-area-inset-top, var(--spacing-sm)) var(--spacing-sm) var(--spacing-sm) var(--spacing-sm);
+    background: linear-gradient(180deg, rgba(10, 15, 29, 0.95) 0%, rgba(17, 26, 46, 0.88) 100%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: calc(env(safe-area-inset-top, 6px) + 4px) var(--spacing-sm) 8px var(--spacing-sm);
     display: flex;
     justify-content: space-between;
     align-items: center;
     z-index: 1000;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    border-bottom: 1px solid var(--border-color);
     transition: transform var(--transition-normal);
 }
 
@@ -144,22 +176,54 @@ p {
     flex-direction: column;
     align-items: center;
     flex: 1;
+    padding: 0 4px;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.info-item:last-child {
+    border-right: none;
 }
 
 .info-label {
-    font-size: 0.65rem;
-    font-weight: bold;
-    color: var(--text-secondary);
-    letter-spacing: 0.5px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    white-space: nowrap;
 }
 
 .info-value {
-    font-size: var(--font-sm);
-    font-weight: 600;
-    color: var(--accent-primary);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--accent-primary-light);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
-/* Map Controls (Right Side) */
+/* Pulse live beacon in info-item */
+.info-item.live-indicator .info-label::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    box-shadow: 0 0 8px var(--accent-primary);
+    margin-right: 4px;
+    animation: livePulse 1.8s infinite;
+}
+
+@keyframes livePulse {
+    0% { transform: scale(0.9); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.5; }
+    100% { transform: scale(0.9); opacity: 1; }
+}
+
+/* ==========================================================================
+   Map Controls (Right Side Vertical Squircle Stack)
+   ========================================================================== */
 .map-controls {
     position: absolute;
     right: var(--spacing-md);
@@ -167,7 +231,7 @@ p {
     transform: translateY(-50%);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: 10px;
     z-index: 1000;
 }
 
@@ -175,61 +239,77 @@ p {
     width: var(--touch-target);
     height: var(--touch-target);
     border-radius: var(--radius-md);
-    background-color: var(--bg-surface);
+    background: rgba(17, 26, 46, 0.85);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
     display: flex;
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-    transition: background-color var(--transition-fast);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+    transition: all var(--transition-fast);
+    outline: none;
 }
 
 .control-btn:active {
-    background-color: var(--border-color);
+    transform: scale(0.93);
+    background: rgba(30, 41, 59, 0.95);
+    border-color: var(--border-color-emerald);
 }
 
-/* Floating Action Button */
+.control-btn svg {
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+/* ==========================================================================
+   Floating Action Button (FAB)
+   ========================================================================== */
 .fab {
     position: absolute;
     right: var(--spacing-md);
-    bottom: calc(var(--nav-height) + var(--spacing-md));
-    width: 56px;
-    height: 56px;
+    bottom: calc(var(--nav-height) + 14px);
+    width: 58px;
+    height: 58px;
     border-radius: var(--radius-pill);
-    background-color: var(--accent-primary);
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     color: white;
     border: none;
     display: flex;
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(46, 204, 113, 0.4);
+    box-shadow: 0 6px 22px rgba(16, 185, 129, 0.48), 0 2px 6px rgba(0, 0, 0, 0.4);
     z-index: 1000;
-    transition: transform var(--transition-fast), background-color var(--transition-fast);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+    outline: none;
 }
 
 .fab:active {
-    transform: scale(0.95);
-    background-color: var(--accent-primary-hover);
+    transform: scale(0.92);
+    box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
 }
 
-/* Bottom Navigation Bar */
+/* ==========================================================================
+   Bottom Navigation Dock
+   ========================================================================== */
 #bottom-nav {
     position: absolute;
     bottom: 0;
     left: 0;
     width: 100%;
     height: var(--nav-height);
-    background-color: var(--bg-surface);
+    background: rgba(13, 21, 38, 0.94);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     display: flex;
     justify-content: space-around;
     align-items: center;
     padding-bottom: env(safe-area-inset-bottom, 0px);
     z-index: 1000;
     border-top: 1px solid var(--border-color);
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35);
 }
 
 .nav-item {
@@ -240,20 +320,43 @@ p {
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 600;
     cursor: pointer;
     width: 20%;
     height: 100%;
     position: relative;
-    transition: color var(--transition-fast);
+    transition: color var(--transition-fast), transform var(--transition-fast);
+    outline: none;
 }
 
 .nav-item svg {
-    margin-bottom: 2px;
+    margin-bottom: 3px;
+    transition: transform var(--transition-fast), filter var(--transition-fast);
 }
 
-.nav-item:active, .nav-item.active {
+.nav-item:active {
+    transform: scale(0.92);
+}
+
+.nav-item.active {
     color: var(--accent-primary);
+}
+
+.nav-item.active svg {
+    transform: translateY(-1px);
+    filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.5));
+}
+
+.nav-item.active::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    width: 18px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--accent-primary);
+    box-shadow: 0 0 8px var(--accent-primary);
 }
 
 #recording-indicator {
@@ -261,20 +364,21 @@ p {
     top: 8px;
     right: 50%;
     margin-right: -16px;
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
     background-color: var(--danger);
+    box-shadow: 0 0 10px var(--danger);
 }
 
-@keyframes pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.5); opacity: 0.5; }
-    100% { transform: scale(1); opacity: 1; }
+@keyframes pulseRecording {
+    0% { transform: scale(1); opacity: 1; box-shadow: 0 0 4px var(--danger); }
+    50% { transform: scale(1.6); opacity: 0.4; box-shadow: 0 0 14px var(--danger); }
+    100% { transform: scale(1); opacity: 1; box-shadow: 0 0 4px var(--danger); }
 }
 
 #recording-indicator:not(.hidden) {
-    animation: pulse 1.5s infinite;
+    animation: pulseRecording 1.4s infinite ease-in-out;
 }
 
 /* Side Panels */
@@ -392,40 +496,80 @@ p {
     padding: var(--spacing-sm) var(--spacing-md);
     border-radius: var(--radius-md);
     font-size: var(--font-md);
-    font-weight: 600;
+    font-weight: 700;
     border: none;
     cursor: pointer;
     display: inline-flex;
     justify-content: center;
     align-items: center;
+    gap: 8px;
     min-height: var(--touch-target);
-    transition: background-color var(--transition-fast), opacity var(--transition-fast);
+    transition: all var(--transition-fast);
+    outline: none;
+    letter-spacing: -0.01em;
 }
 
 .btn-primary {
-    background-color: var(--accent-primary);
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     color: white;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+}
+
+.btn-primary:active {
+    transform: scale(0.96);
+    box-shadow: 0 1px 6px rgba(16, 185, 129, 0.2);
 }
 
 .btn-secondary {
-    background-color: var(--border-color);
+    background: rgba(255, 255, 255, 0.07);
     color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:active {
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(0.96);
 }
 
 .btn-success {
-    background-color: var(--accent-secondary);
+    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
     color: white;
+    box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
 }
 
 .btn-danger {
-    background-color: var(--danger);
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
     color: white;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+
+.btn-danger:active {
+    transform: scale(0.96);
 }
 
 .btn-outline {
     background-color: transparent;
     border: 1px solid var(--border-color);
     color: var(--text-primary);
+}
+
+.btn-outline:active {
+    background: rgba(255, 255, 255, 0.05);
+    transform: scale(0.96);
+}
+
+.btn-export-unified {
+    background: linear-gradient(135deg, #10b981 0%, #0284c7 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35) !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.3px !important;
+    transition: all var(--transition-fast) !important;
+}
+
+.btn-export-unified:active {
+    transform: scale(0.97) !important;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2) !important;
 }
 
 .full-width {
@@ -485,7 +629,18 @@ p {
     .modal-content {
         max-width: 100%;
         max-height: 90dvh;
-        border-radius: 20px 20px 0 0;
+        border-radius: 24px 24px 0 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .modal-content::before {
+        content: '';
+        display: block;
+        width: 38px;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.22);
+        margin: 10px auto 4px auto;
+        flex-shrink: 0;
     }
 }
 
@@ -518,19 +673,28 @@ p {
 
 .modal-header h2 {
     margin: 0;
-    font-size: var(--font-lg);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
 }
 
 .btn-close-modal {
-    background: none;
-    border: none;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
     color: var(--text-secondary);
     cursor: pointer;
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     display: flex;
     justify-content: center;
     align-items: center;
+    transition: all var(--transition-fast);
+}
+
+.btn-close-modal:active {
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(0.92);
 }
 
 .modal-body {
@@ -551,7 +715,8 @@ p {
     justify-content: flex-end;
     gap: var(--spacing-md);
     flex-shrink: 0;
-    background: var(--bg-surface);
+    background: rgba(17, 26, 46, 0.95);
+    backdrop-filter: blur(12px);
     z-index: 5;
 }
 
@@ -563,27 +728,31 @@ p {
 }
 
 label {
-    font-size: var(--font-sm);
-    font-weight: 600;
+    font-size: 0.8rem;
+    font-weight: 700;
     color: var(--text-secondary);
     margin-top: var(--spacing-sm);
+    letter-spacing: 0.2px;
 }
 
 .form-control, .custom-select {
     width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    border-radius: 10px;
     border: 1px solid var(--border-color);
-    background-color: var(--bg-base);
+    background-color: rgba(255, 255, 255, 0.04);
     color: var(--text-primary);
     font-family: inherit;
-    font-size: var(--font-md);
+    font-size: 0.92rem;
     min-height: var(--touch-target);
+    transition: all var(--transition-fast);
 }
 
 .form-control:focus, .custom-select:focus {
     outline: none;
-    border-color: var(--accent-primary);
+    background-color: rgba(255, 255, 255, 0.07);
+    border-color: var(--accent-azure);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.22);
 }
 
 textarea.form-control {
@@ -1241,74 +1410,162 @@ input:checked + .slider:before {
 .censo-details {
     margin-top: 8px;
     background: rgba(255, 255, 255, 0.03);
-    border-radius: 8px;
+    border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.censo-details[open] {
+    border-color: rgba(14, 165, 233, 0.4);
+    background: rgba(14, 165, 233, 0.04);
 }
 
 .censo-details summary {
-    padding: 9px 12px;
-    font-size: 11px;
+    padding: 10px 14px;
+    font-size: 11.5px;
     font-weight: 700;
-    color: #3498db;
+    color: #38bdf8;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.03);
     user-select: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    transition: background 0.2s ease;
+    transition: background 0.15s ease;
+}
+
+.censo-details summary:active {
+    background: rgba(14, 165, 233, 0.15);
 }
 
 .censo-details[open] summary {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(52, 152, 219, 0.12);
+    background: rgba(14, 165, 233, 0.12);
 }
 
 .censo-badge {
-    background: rgba(46, 204, 113, 0.2);
-    color: #2ecc71;
-    border: 1px solid #2ecc71;
-    border-radius: 10px;
-    padding: 1px 7px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 2px 8px;
     font-size: 10px;
     font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.censo-badge.has-selection {
+    background: rgba(16, 185, 129, 0.25);
+    color: #34d399;
+    border-color: #10b981;
+    font-weight: 700;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
 }
 
 .censo-chips-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    padding: 8px;
-    background: rgba(0, 0, 0, 0.25);
-    border-radius: 0 0 8px 8px;
+    gap: 7px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 0 0 10px 10px;
 }
 
 .censo-chip {
-    padding: 6px 10px;
-    font-size: 11px;
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.08);
+    padding: 7px 12px;
+    font-size: 11.5px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.06);
     color: var(--text-primary);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     cursor: pointer;
     user-select: none;
-    transition: all 0.15s ease;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     line-height: 1.2;
 }
 
 .censo-chip:active {
-    transform: scale(0.95);
+    transform: scale(0.94);
 }
 
 .censo-chip.selected {
-    background: #27ae60;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     color: #ffffff;
-    border-color: #2ecc71;
+    border-color: #34d399;
     font-weight: 700;
-    box-shadow: 0 1px 4px rgba(46, 204, 113, 0.4);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.45);
+}
+
+/* ========== Camera Viewfinder & Rule-of-Thirds Grid ========== */
+.camera-grid-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0.28;
+}
+
+.grid-line {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 1px rgba(0, 0, 0, 0.8);
+}
+
+.grid-line-h1 { top: 33.33%; left: 0; right: 0; height: 1px; }
+.grid-line-h2 { top: 66.66%; left: 0; right: 0; height: 1px; }
+.grid-line-v1 { left: 33.33%; top: 0; bottom: 0; width: 1px; }
+.grid-line-v2 { left: 66.66%; top: 0; bottom: 0; width: 1px; }
+
+/* Shutter Button Pro Animation & Styling */
+#btn-camera-shutter {
+    transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease !important;
+}
+
+#btn-camera-shutter:active {
+    transform: scale(0.9) !important;
+    box-shadow: 0 0 25px rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Toast Notifications */
+#toast-container {
+    position: fixed;
+    bottom: calc(var(--nav-height) + 16px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    width: 90%;
+    max-width: 380px;
+}
+
+.toast {
+    background: rgba(17, 26, 46, 0.94);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: var(--text-primary);
+    padding: 10px 18px;
+    border-radius: var(--radius-pill);
+    font-size: 0.85rem;
+    font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-color-emerald);
+    opacity: 0;
+    transform: translateY(12px) scale(0.95);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    text-align: center;
+    pointer-events: auto;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
 }
 

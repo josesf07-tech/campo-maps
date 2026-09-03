@@ -42,7 +42,7 @@
         if ('caches' in window) {
             caches.keys().then(keys => {
                 keys.forEach(k => {
-                    if (k.startsWith('campo-maps-') && !k.includes('-v20')) {
+                    if (k.startsWith('campo-maps-') && !k.includes('-v21')) {
                         console.log('Purging outdated cache:', k);
                         caches.delete(k);
                     }
@@ -52,7 +52,7 @@
     </script>
 
     <!-- App CSS -->
-    <link rel="stylesheet" href="css/style.css?v=20">
+    <link rel="stylesheet" href="css/style.css?v=21">
 </head>
 <body>
 
@@ -84,10 +84,11 @@
         </div>
 
         <!-- Project Selector Badge (Top Left) -->
-        <div id="project-bar" style="position: absolute; top: 12px; left: 14px; z-index: 1000; display: flex; align-items: center; gap: 8px;">
-            <button id="btn-open-projects" type="button" style="background: rgba(22, 33, 62, 0.92); border: 1px solid var(--accent-primary); color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; box-shadow: 0 3px 12px rgba(0,0,0,0.4); cursor: pointer; backdrop-filter: blur(6px);">
+        <div id="project-bar">
+            <button id="btn-open-projects" type="button" title="Toca para cambiar o crear proyectos">
+                <span class="project-dot"></span>
                 <span>📁</span>
-                <span id="active-project-label" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Proyecto General</span>
+                <span id="active-project-label" style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Proyecto General</span>
                 <span style="font-size: 9px; color: var(--accent-primary); margin-left: 2px;">▼</span>
             </button>
         </div>
@@ -105,6 +106,9 @@
 
         <!-- Map Controls (Right Side) -->
         <div class="map-controls">
+            <button id="btn-quick-projects" class="control-btn" aria-label="Gestor de Proyectos" title="Gestor de Proyectos / Obras">
+                <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            </button>
             <button id="btn-layers" class="control-btn" aria-label="Cambiar Capas" title="Satélite / Callejero / Topográfico">
                 <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 12 12 17 22 12"></polyline><polyline points="2 17 12 22 22 17"></polyline></svg>
             </button>
@@ -163,10 +167,22 @@
 
         <aside id="panel-maps" class="side-panel">
             <header class="panel-header">
-                <h2>Mis Mapas</h2>
+                <h2>Mis Mapas y Proyectos</h2>
                 <button class="btn-close-panel"><svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             </header>
             <div class="panel-content">
+                <!-- Active Project Card -->
+                <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(14, 165, 233, 0.12) 100%); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 12px; margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-size: 11px; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 0.5px;">📁 Proyecto Activo</span>
+                        <span style="font-size: 10px; background: rgba(16, 185, 129, 0.25); color: #34d399; padding: 2px 8px; border-radius: 10px; font-weight: 700;">En Uso</span>
+                    </div>
+                    <div id="panel-maps-project-name" style="font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 8px;">Proyecto General</div>
+                    <button id="btn-panel-maps-switch-project" type="button" class="btn-secondary full-width" style="font-size: 12px; padding: 8px; font-weight: 600; border-color: rgba(16, 185, 129, 0.5); color: #34d399; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <span>🔄</span> Cambiar o Crear Proyecto
+                    </button>
+                </div>
+
                 <button id="btn-open-calibrate" class="btn-primary full-width">Importar / Calibrar Mapa</button>
                 <button id="btn-open-offline-dl" class="btn-outline full-width" style="margin-top: 8px; border-color: #3498db; color: #3498db; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 0.82rem;">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -204,7 +220,14 @@
                 <button class="btn-close-panel"><svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             </header>
             <div class="panel-content">
-                <button id="btn-export-all-main" class="btn-primary full-width" style="background: linear-gradient(135deg, #1b4f72, #27ae60); padding: 11px 8px; margin-bottom: 12px; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; border: none; box-shadow: 0 2px 6px rgba(0,0,0,0.3); cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px;">
+                    <div style="font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        📁 Proyecto: <strong id="panel-placemarks-project-name" style="color: #34d399;">Proyecto General</strong>
+                    </div>
+                    <button id="btn-panel-pm-switch-project" type="button" style="background: none; border: none; color: #38bdf8; font-size: 11px; font-weight: 700; cursor: pointer; padding: 2px 6px; white-space: nowrap;">Cambiar</button>
+                </div>
+
+                <button id="btn-export-all-main" class="btn-export-unified full-width" style="padding: 12px 8px; margin-bottom: 12px; font-size: 12.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; cursor: pointer;">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                     <span>📥 Exportar Todo (KMZ + Word + Excel)</span>
                 </button>
@@ -250,14 +273,17 @@
                             <span class="slider"></span>
                         </label>
                     </div>
-                    <div style="margin-top: 10px;">
-                        <label for="input-project-name" style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Nombre del Proyecto / Obra</label>
-                        <input type="text" id="input-project-name" class="form-control" placeholder="Ej: Proyecto Infraestructura Meta" value="CampoMaps">
+                    <div style="margin-top: 10px; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border: 1px solid var(--border-color);">
+                        <label for="input-project-name" style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Proyecto Actual para Fotos y Entregables</label>
+                        <input type="text" id="input-project-name" class="form-control" placeholder="Ej: Proyecto Infraestructura Meta" value="CampoMaps" readonly style="opacity: 0.9; cursor: pointer;">
+                        <button type="button" id="btn-settings-open-projects" class="btn-secondary full-width" style="margin-top: 8px; font-size: 12px; padding: 8px; font-weight: 700; border-color: #10b981; color: #34d399; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                            <span>📁</span> Abrir Gestor de Proyectos
+                        </button>
                     </div>
                 </div>
                 <div class="setting-group">
                     <h3>Exportación y Entregables</h3>
-                    <button id="btn-settings-export-all" class="btn-primary full-width" style="background: linear-gradient(135deg, #1b4f72, #27ae60); padding: 12px; margin-bottom: 12px; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; border: none; cursor: pointer;">
+                    <button id="btn-settings-export-all" class="btn-export-unified full-width" style="padding: 12px; margin-bottom: 12px; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; cursor: pointer;">
                         <span>📥</span> Exportar Todo (KMZ + Word + Excel)
                     </button>
 
@@ -682,13 +708,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- App JS Modules -->
-    <script type="module" src="js/app.js?v=20"></script>
+    <script type="module" src="js/app.js?v=21"></script>
     
     <!-- Service Worker Registration with auto-update -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js?v=20').then(registration => {
+                navigator.serviceWorker.register('./sw.js?v=21').then(registration => {
                     registration.update();
                     console.log('ServiceWorker registered with scope: ', registration.scope);
                 }, err => {

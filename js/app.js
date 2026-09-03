@@ -279,6 +279,7 @@ function startGPS() {
     // Show info bar
     const topInfoBar = document.getElementById('top-info-bar');
     if (topInfoBar) topInfoBar.classList.remove('hidden');
+    document.body.classList.add('has-top-bar');
     
     showToast('📡 GPS Activado');
 }
@@ -291,6 +292,7 @@ function stopGPS() {
     // Hide info bar
     const topInfoBar = document.getElementById('top-info-bar');
     if (topInfoBar) topInfoBar.classList.add('hidden');
+    document.body.classList.remove('has-top-bar');
     
     showToast('GPS Desactivado');
 }
@@ -2010,6 +2012,10 @@ function showToast(message, duration = 3000) {
 // ========== PROJECTS MANAGEMENT ==========
 async function setupProjects() {
     const btnOpenProjects = document.getElementById('btn-open-projects');
+    const btnQuickProjects = document.getElementById('btn-quick-projects');
+    const btnMapsSwitchProject = document.getElementById('btn-panel-maps-switch-project');
+    const btnPmSwitchProject = document.getElementById('btn-panel-pm-switch-project');
+    const btnSettingsOpenProjects = document.getElementById('btn-settings-open-projects');
     const modalProjects = document.getElementById('modal-projects');
     const btnShowForm = document.getElementById('btn-show-project-form');
     const formBox = document.getElementById('project-form-box');
@@ -2018,12 +2024,14 @@ async function setupProjects() {
     const inputName = document.getElementById('new-project-name');
     const inputDesc = document.getElementById('new-project-desc');
 
-    if (btnOpenProjects) {
-        btnOpenProjects.addEventListener('click', async () => {
-            if (modalProjects) modalProjects.classList.remove('hidden');
-            await updateProjectsList();
-        });
-    }
+    const openModalProjects = async () => {
+        if (modalProjects) modalProjects.classList.remove('hidden');
+        await updateProjectsList();
+    };
+
+    [btnOpenProjects, btnQuickProjects, btnMapsSwitchProject, btnPmSwitchProject, btnSettingsOpenProjects].forEach(btn => {
+        if (btn) btn.addEventListener('click', openModalProjects);
+    });
 
     if (btnShowForm && formBox) {
         btnShowForm.addEventListener('click', () => {
@@ -2096,6 +2104,14 @@ async function switchProject(projectId) {
     // Update top bar label
     const labelEl = document.getElementById('active-project-label');
     if (labelEl) labelEl.textContent = proj.name;
+
+    // Update Project Name in Maps panel
+    const panelMapsProjectName = document.getElementById('panel-maps-project-name');
+    if (panelMapsProjectName) panelMapsProjectName.textContent = proj.name;
+
+    // Update Project Name in Placemarks panel
+    const panelPmProjectName = document.getElementById('panel-placemarks-project-name');
+    if (panelPmProjectName) panelPmProjectName.textContent = proj.name;
 
     // Update Project Name in Settings for photo watermark
     const inputProjectName = document.getElementById('input-project-name');

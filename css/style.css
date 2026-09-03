@@ -222,6 +222,54 @@ p {
 }
 
 /* ==========================================================================
+   Project Bar Capsule (Top Left - High Visibility)
+   ========================================================================== */
+#project-bar {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 6px) + 8px);
+    left: 12px;
+    z-index: 990;
+    transition: top 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.has-top-bar #project-bar {
+    top: calc(var(--top-bar-height) + 8px);
+}
+
+#btn-open-projects {
+    background: rgba(17, 26, 46, 0.88) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: 1px solid var(--border-color-emerald) !important;
+    color: #ffffff !important;
+    padding: 7px 14px !important;
+    border-radius: 20px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+    outline: none !important;
+}
+
+#btn-open-projects:active {
+    transform: scale(0.94) !important;
+    background: rgba(30, 41, 59, 0.95) !important;
+}
+
+.project-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    box-shadow: 0 0 6px var(--accent-primary);
+    flex-shrink: 0;
+}
+
+/* ==========================================================================
    Map Controls (Right Side Vertical Squircle Stack)
    ========================================================================== */
 .map-controls {

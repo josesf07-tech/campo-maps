@@ -7,7 +7,7 @@
  * offline fallbacks, and cache management messaging.
  */
 
-const CACHE_VERSION = 'v20';
+const CACHE_VERSION = 'v21';
 const APP_CACHE_NAME = `campo-maps-${CACHE_VERSION}`;
 const TILE_CACHE_NAME = `campo-maps-tiles-${CACHE_VERSION}`;
 const MAX_TILES = 5000;

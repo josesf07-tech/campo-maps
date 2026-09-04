@@ -9,5 +9,5 @@
  * de index.html. El Service Worker y las cachés se renombran automáticamente.
  */
 (function (root) {
-    root.CAMPOMAPS_VERSION = 'v24';
+    root.CAMPOMAPS_VERSION = 'v25';
 })(typeof self !== 'undefined' ? self : window);

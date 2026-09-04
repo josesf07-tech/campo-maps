@@ -19,7 +19,7 @@
     <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 
     <!-- Versión única de la app (compartida con el Service Worker) -->
-    <script src="js/version.js?v=24"></script>
+    <script src="js/version.js?v=25"></script>
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -287,7 +287,7 @@
             <header class="panel-header">
                 <div>
                     <h2>Ajustes</h2>
-                    <div class="panel-subtitle">JoseMaps <span id="app-version-label" class="mono">v24</span></div>
+                    <div class="panel-subtitle">JoseMaps <span id="app-version-label" class="mono">v25</span></div>
                 </div>
                 <button class="btn-close-panel" aria-label="Cerrar panel"><svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-x"/></svg></button>
             </header>
@@ -728,7 +728,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function () {
-                var v = window.CAMPOMAPS_VERSION || 'v24';
+                var v = window.CAMPOMAPS_VERSION || 'v25';
                 navigator.serviceWorker.register('./sw.js?v=' + v).then(function (registration) {
                     registration.update().catch(function () {});
                 }).catch(function (err) {

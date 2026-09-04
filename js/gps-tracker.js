@@ -16,6 +16,10 @@ export class GPSTracker {
         this.lastPosition = null;
         this.positionBuffer = [];
         this.currentHeading = null;
+        this.headingAbsolute = false;   // false = brújula sin referencia al norte real
+        this._hasAbsolute = false;
+        this._hx = undefined;
+        this._hy = undefined;
         this.minInterval = 1000;        // ms entre actualizaciones entregadas
         this._lastDelivered = 0;
         this._lastHeadingDelivered = 0;
@@ -84,6 +88,8 @@ export class GPSTracker {
             this._orientationBound = false;
         }
         this.positionBuffer = [];
+        this._hx = undefined;
+        this._hy = undefined;
     }
 
     getCurrentPosition() {
@@ -283,12 +289,12 @@ export class GPSTracker {
     async initCompass() {
         if (this._orientationBound) return;
         const attach = () => {
-            // 'deviceorientationabsolute' da norte verdadero en Android/Chrome; iOS usa webkitCompassHeading
+            // 'deviceorientationabsolute' da el norte real en Android/Chrome.
+            // 'deviceorientation' se escucha siempre porque en iOS trae webkitCompassHeading.
             if ('ondeviceorientationabsolute' in window) {
                 window.addEventListener('deviceorientationabsolute', this.handleOrientation);
-            } else {
-                window.addEventListener('deviceorientation', this.handleOrientation);
             }
+            window.addEventListener('deviceorientation', this.handleOrientation);
             this._orientationBound = true;
         };
 
@@ -306,15 +312,22 @@ export class GPSTracker {
     }
 
     handleOrientation(event) {
-        let heading = null;
-        if (event.webkitCompassHeading !== undefined && event.webkitCompassHeading !== null) {
-            heading = event.webkitCompassHeading;
-        } else if (event.alpha !== null && event.alpha !== undefined) {
-            heading = (360 - event.alpha) % 360;
-        }
-        if (heading === null || isNaN(heading)) return;
+        const isAbsolute = event.type === 'deviceorientationabsolute' || event.absolute === true;
+        const compass = (event.webkitCompassHeading !== undefined && event.webkitCompassHeading !== null && !isNaN(event.webkitCompassHeading))
+            ? event.webkitCompassHeading
+            : null;
 
-        this.currentHeading = Math.round(heading) % 360;
+        // Android emite los dos eventos: una vez que llega el absoluto, el relativo se descarta
+        if (isAbsolute) this._hasAbsolute = true;
+        if (!isAbsolute && this._hasAbsolute && compass === null) return;
+
+        // iOS ya entrega el rumbo magnético resuelto: se usa como referencia absoluta de alpha
+        const alpha = (compass !== null) ? (360 - compass) : event.alpha;
+        const raw = GPSTracker.headingFromOrientation(alpha, event.beta, event.gamma, GPSTracker.screenAngle());
+        if (raw === null) return;
+
+        this.headingAbsolute = isAbsolute || compass !== null;
+        this.currentHeading = Math.round(this._smoothHeading(raw)) % 360;
         if (this.lastPosition) this.lastPosition.heading = this.currentHeading;
 
         // La brújula puede emitir a 60 Hz: se limita a ~4 Hz y no dispara la cadena de posición
@@ -327,6 +340,85 @@ export class GPSTracker {
 
     getHeading() {
         return (this.currentHeading !== undefined && this.currentHeading !== null) ? this.currentHeading : null;
+    }
+
+    /** true si el rumbo está referido al norte real; false si la brújula no tiene referencia. */
+    isHeadingAbsolute() {
+        return !!this.headingAbsolute;
+    }
+
+    /** Ángulo de giro de la pantalla (0 en vertical, 90/270 en apaisado). */
+    static screenAngle() {
+        if (typeof window === 'undefined') return 0;
+        let angle = 0;
+        if (window.screen && window.screen.orientation && typeof window.screen.orientation.angle === 'number') {
+            angle = window.screen.orientation.angle;
+        } else if (typeof window.orientation === 'number') {
+            angle = window.orientation;
+        }
+        return ((angle % 360) + 360) % 360;
+    }
+
+    /**
+     * Rumbo en grados desde el Norte (sentido horario) a partir de los ángulos de
+     * DeviceOrientation, teniendo en cuenta la INCLINACIÓN del teléfono.
+     *
+     * Se arma la matriz de rotación completa R = Rz(alpha)·Rx(beta)·Ry(gamma), que lleva
+     * los ejes del aparato a los de la Tierra (X=Este, Y=Norte, Z=Arriba), y se proyecta
+     * sobre el plano horizontal el eje que esté más cerca de la horizontal: la cámara
+     * trasera cuando el teléfono está vertical, el borde superior cuando está acostado.
+     *
+     * Por qué no basta con 'alpha': con el teléfono vertical (beta ≈ 90°) la descomposición
+     * de Euler es ambigua, y el navegador puede entregar (alpha, gamma) o (alpha+180,
+     * gamma+180) para la MISMA orientación física. La fórmula 360-alpha invierte entonces
+     * el rumbo 180°: el Oeste se lee como Este y el Norte como Sur. La matriz completa
+     * reconstruye siempre la orientación real, sin importar qué rama devuelva el navegador.
+     */
+    static headingFromOrientation(alpha, beta, gamma, screenAngle = 0) {
+        if (alpha === null || alpha === undefined || isNaN(alpha)) return null;
+        const b = (beta === null || beta === undefined || isNaN(beta)) ? 0 : beta;
+        const g = (gamma === null || gamma === undefined || isNaN(gamma)) ? 0 : gamma;
+
+        const D = Math.PI / 180;
+        const ca = Math.cos(alpha * D), sa = Math.sin(alpha * D);
+        const cb = Math.cos(b * D), sb = Math.sin(b * D);
+        const cg = Math.cos(g * D), sg = Math.sin(g * D);
+
+        const R = [
+            [ca * cg - sa * sb * sg, -sa * cb, ca * sg + sa * sb * cg],
+            [sa * cg + ca * sb * sg,  ca * cb, sa * sg - ca * sb * cg],
+            [-cb * sg,                sb,      cb * cg]
+        ];
+        const apply = (v) => [
+            R[0][0] * v[0] + R[0][1] * v[1] + R[0][2] * v[2],
+            R[1][0] * v[0] + R[1][1] * v[1] + R[1][2] * v[2],
+            R[2][0] * v[0] + R[2][1] * v[1] + R[2][2] * v[2]
+        ];
+
+        const t = (screenAngle || 0) * D;
+        const bordeSuperior = apply([Math.sin(t), Math.cos(t), 0]);
+        const camara = apply([0, 0, -1]);
+        // El eje más horizontal es el que se proyecta con menos error
+        const v = Math.abs(camara[2]) <= Math.abs(bordeSuperior[2]) ? camara : bordeSuperior;
+        if (Math.abs(v[0]) < 1e-9 && Math.abs(v[1]) < 1e-9) return null;
+
+        return (Math.atan2(v[0], v[1]) / D + 360) % 360;
+    }
+
+    /** Suavizado circular: quita el temblor sin retrasar los giros rápidos. */
+    _smoothHeading(heading) {
+        const D = Math.PI / 180;
+        const x = Math.cos(heading * D), y = Math.sin(heading * D);
+        if (this._hx === undefined) {
+            this._hx = x;
+            this._hy = y;
+        } else {
+            const dot = this._hx * x + this._hy * y;
+            const k = dot < 0.7 ? 0.7 : 0.25; // giro amplio: seguir de inmediato
+            this._hx += (x - this._hx) * k;
+            this._hy += (y - this._hy) * k;
+        }
+        return (Math.atan2(this._hy, this._hx) / D + 360) % 360;
     }
 
     static headingToCardinal(heading) {

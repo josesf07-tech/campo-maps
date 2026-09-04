@@ -1,6 +1,6 @@
 /**
  * CampoMaps - Service Worker
- * Version: 2.1.0 (v24)
+ * Version: 2.2.0 (v25)
  *
  * Offline-first PWA Service Worker for CampoMaps field mapping application.
  * Handles app shell caching, dynamic map tile caching with LRU eviction,
@@ -9,7 +9,7 @@
 
 // Versión compartida con la página (js/version.js)
 try { importScripts('./js/version.js'); } catch (e) { /* fallback abajo */ }
-const CACHE_VERSION = (typeof self.CAMPOMAPS_VERSION === 'string' && self.CAMPOMAPS_VERSION) ? self.CAMPOMAPS_VERSION : 'v24';
+const CACHE_VERSION = (typeof self.CAMPOMAPS_VERSION === 'string' && self.CAMPOMAPS_VERSION) ? self.CAMPOMAPS_VERSION : 'v25';
 const NETWORK_TIMEOUT_MS = 4000;
 const APP_CACHE_NAME = `campo-maps-${CACHE_VERSION}`;
 // La caché de teselas NO lleva versión: los mapas offline descargados sobreviven a las actualizaciones.

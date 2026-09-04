@@ -44,7 +44,7 @@ const state = {
     lastLoadedGeoPdfName: '',
 };
 
-const APP_VERSION = window.CAMPOMAPS_VERSION || 'v23';
+const APP_VERSION = window.CAMPOMAPS_VERSION || 'v24';
 
 const ICONS = {
     trash: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
@@ -154,7 +154,7 @@ async function initApp() {
         // Load saved data & projects
         await loadSavedData();
 
-        showToast(`✅ CampoMaps listo · ${state.currentProjectName}`);
+        showToast(`✅ JoseMaps listo · ${state.currentProjectName}`);
     } catch (e) {
         console.error('Error al iniciar la app:', e);
         showToast('❌ Error al iniciar la aplicación: ' + e.message);
@@ -849,7 +849,7 @@ function setupPlacemarks() {
             // Technical Watermark Stamping
             const stampToggle = document.getElementById('pm-stamp-toggle');
             const isStampEnabled = stampToggle ? stampToggle.checked : true;
-            const projectName = state.currentProjectName || 'CampoMaps';
+            const projectName = state.currentProjectName || 'JoseMaps';
 
             let targetLat = null, targetLng = null, targetAlt = null, targetAcc = null;
             if (state.gps && state.gps.currentPosition) {
@@ -983,7 +983,7 @@ function setupPlacemarks() {
 
             const stampToggle = document.getElementById('pm-stamp-toggle');
             const isStampEnabled = stampToggle ? stampToggle.checked : true;
-            const projectName = state.currentProjectName || 'CampoMaps';
+            const projectName = state.currentProjectName || 'JoseMaps';
 
             let targetLat = null, targetLng = null, targetAlt = null, targetAcc = null;
             if (state.gps && state.gps.currentPosition) {
@@ -1005,7 +1005,7 @@ function setupPlacemarks() {
 
             const stampOptions = {
                 enabled: isStampEnabled,
-                projectName: projectName || 'CampoMaps',
+                projectName: projectName || 'JoseMaps',
                 lat: targetLat,
                 lng: targetLng,
                 altitude: targetAlt,
@@ -1158,7 +1158,7 @@ function setupPlacemarks() {
     async function handleExportKmz() {
         const pms = await getActivePlacemarks();
         if (!pms || pms.length === 0) return;
-        const projName = (state.currentProjectName || 'CampoMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
+        const projName = (state.currentProjectName || 'JoseMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
         const dateStr = new Date().toISOString().slice(0, 10);
         await exportPlacemarksToKMZ(pms, `${projName}_Puntos_MAGNA_${dateStr}.kmz`);
     }
@@ -1166,7 +1166,7 @@ function setupPlacemarks() {
     async function handleExportDocx() {
         const pms = await getActivePlacemarks();
         if (!pms || pms.length === 0) return;
-        const projName = (state.currentProjectName || 'CampoMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
+        const projName = (state.currentProjectName || 'JoseMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
         const dateStr = new Date().toISOString().slice(0, 10);
         await exportPlacemarksToDocx(pms, {
             filename: `Registro_Fotografico_${projName}_${dateStr}.docx`,
@@ -1177,7 +1177,7 @@ function setupPlacemarks() {
     async function handleExportExcelUso() {
         const pms = await getActivePlacemarks();
         if (!pms || pms.length === 0) return;
-        const projName = (state.currentProjectName || 'CampoMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
+        const projName = (state.currentProjectName || 'JoseMaps').replace(/[\s\/\\:*?"<>|]/g, '_');
         const dateStr = new Date().toISOString().slice(0, 10);
         await exportUsoUsuariosToExcel(pms, `Censo_Uso_y_Usuarios_${projName}_${dateStr}.xlsx`);
     }
@@ -2155,7 +2155,7 @@ function setupDataReset() {
     btn.addEventListener('click', async () => {
         const ok = confirm('Se borrarán TODOS los proyectos, marcadores, fotos, rutas, planos y mapas offline guardados en este dispositivo.\n\nEsta acción no se puede deshacer. ¿Continuar?');
         if (!ok) return;
-        const ok2 = confirm('Última confirmación: ¿borrar todos los datos locales de CampoMaps?');
+        const ok2 = confirm('Última confirmación: ¿borrar todos los datos locales de JoseMaps?');
         if (!ok2) return;
         try {
             showLoading('Borrando datos locales...');

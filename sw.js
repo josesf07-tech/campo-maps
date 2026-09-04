@@ -1,6 +1,6 @@
 /**
  * CampoMaps - Service Worker
- * Version: 2.0.0 (v23)
+ * Version: 2.1.0 (v24)
  *
  * Offline-first PWA Service Worker for CampoMaps field mapping application.
  * Handles app shell caching, dynamic map tile caching with LRU eviction,
@@ -9,7 +9,7 @@
 
 // Versión compartida con la página (js/version.js)
 try { importScripts('./js/version.js'); } catch (e) { /* fallback abajo */ }
-const CACHE_VERSION = (typeof self.CAMPOMAPS_VERSION === 'string' && self.CAMPOMAPS_VERSION) ? self.CAMPOMAPS_VERSION : 'v23';
+const CACHE_VERSION = (typeof self.CAMPOMAPS_VERSION === 'string' && self.CAMPOMAPS_VERSION) ? self.CAMPOMAPS_VERSION : 'v24';
 const NETWORK_TIMEOUT_MS = 4000;
 const APP_CACHE_NAME = `campo-maps-${CACHE_VERSION}`;
 // La caché de teselas NO lleva versión: los mapas offline descargados sobreviven a las actualizaciones.
@@ -86,7 +86,7 @@ const OFFLINE_HTML_FALLBACK = `
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CampoMaps - Modo Offline</title>
+  <title>JoseMaps - Modo Offline</title>
   <style>
     body {
       background-color: #0d1424;
@@ -119,7 +119,7 @@ const OFFLINE_HTML_FALLBACK = `
 </head>
 <body>
   <div class="icon">📡</div>
-  <h1>CampoMaps Offline</h1>
+  <h1>JoseMaps sin conexión</h1>
   <p>No tienes conexión a Internet en este momento. Las capas y datos descargados previamente seguirán funcionando normalmente.</p>
   <button onclick="window.location.reload()">Reintentar</button>
 </body>

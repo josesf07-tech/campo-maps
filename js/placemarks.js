@@ -333,7 +333,7 @@ export class PlacemarkManager {
                         try {
                             const magna = toMagnaSirgas(stampOptions.lat, stampOptions.lng);
                             const dateStr = (stampOptions.timestamp || new Date()).toLocaleString('es-CO');
-                            const projName = stampOptions.projectName || 'CampoMaps';
+                            const projName = stampOptions.projectName || 'JoseMaps';
 
                             const fontSize = Math.max(13, Math.round(w * 0.021));
                             const lineHeight = Math.round(fontSize * 1.35);

@@ -8,18 +8,18 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="CampoMaps">
+    <meta name="apple-mobile-web-app-title" content="JoseMaps">
     <meta name="theme-color" content="#0d1424">
     <meta name="description" content="Mapas offline con GPS, GeoPDF y coordenadas MAGNA-SIRGAS para trabajo de campo">
 
-    <title>CampoMaps - Mapas Offline</title>
+    <title>JoseMaps - Mapas Offline</title>
 
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 
     <!-- Versión única de la app (compartida con el Service Worker) -->
-    <script src="js/version.js?v=23"></script>
+    <script src="js/version.js?v=24"></script>
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -57,7 +57,7 @@
         })();
     </script>
 
-    <link rel="stylesheet" href="css/style.css?v=23">
+    <link rel="stylesheet" href="css/style.css?v=24">
 </head>
 <body>
 
@@ -287,7 +287,7 @@
             <header class="panel-header">
                 <div>
                     <h2>Ajustes</h2>
-                    <div class="panel-subtitle">CampoMaps <span id="app-version-label" class="mono">v23</span></div>
+                    <div class="panel-subtitle">JoseMaps <span id="app-version-label" class="mono">v24</span></div>
                 </div>
                 <button class="btn-close-panel" aria-label="Cerrar panel"><svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-x"/></svg></button>
             </header>
@@ -337,7 +337,7 @@
                     </div>
                     <div class="card mt-8">
                         <label for="input-project-name">Proyecto actual para fotos y entregables</label>
-                        <input type="text" id="input-project-name" class="form-control mt-8" placeholder="Ej: Proyecto Infraestructura Meta" value="CampoMaps" readonly>
+                        <input type="text" id="input-project-name" class="form-control mt-8" placeholder="Ej: Proyecto Infraestructura Meta" value="JoseMaps" readonly>
                         <button type="button" id="btn-settings-open-projects" class="btn-outline accent btn-sm btn-block mt-8">
                             <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-folder"/></svg>
                             Abrir gestor de proyectos
@@ -722,13 +722,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- App -->
-    <script type="module" src="js/app.js?v=23"></script>
+    <script type="module" src="js/app.js?v=24"></script>
 
     <!-- Service Worker -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function () {
-                var v = window.CAMPOMAPS_VERSION || 'v23';
+                var v = window.CAMPOMAPS_VERSION || 'v24';
                 navigator.serviceWorker.register('./sw.js?v=' + v).then(function (registration) {
                     registration.update().catch(function () {});
                 }).catch(function (err) {

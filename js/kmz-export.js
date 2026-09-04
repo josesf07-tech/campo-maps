@@ -5,7 +5,7 @@ import { toMagnaSirgas } from './coords.js';
  * @param {Array} placemarks - Array de objetos placemark de CampoMaps
  * @param {string} filename - Nombre del archivo de salida
  */
-export async function exportPlacemarksToKMZ(placemarks, filename = 'CampoMaps_Puntos_MAGNA.kmz') {
+export async function exportPlacemarksToKMZ(placemarks, filename = 'JoseMaps_Puntos_MAGNA.kmz') {
     if (!window.JSZip) {
         throw new Error('Librería JSZip no cargada. No es posible generar KMZ.');
     }
@@ -78,7 +78,7 @@ export async function exportPlacemarksToKMZ(placemarks, filename = 'CampoMaps_Pu
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>${escapeXml(filename.replace(/\.kmz$/i, ''))}</name>
-    <description>Generado por CampoMaps - Sistema MAGNA-SIRGAS Origen Nacional (EPSG:9377)</description>
+    <description>Generado por JoseMaps - Sistema MAGNA-SIRGAS Origen Nacional (EPSG:9377)</description>
     <open>1</open>
     ${kmlPlacemarks}
   </Document>
@@ -99,7 +99,7 @@ export async function exportPlacemarksToKMZ(placemarks, filename = 'CampoMaps_Pu
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
             await navigator.share({
-                title: 'CampoMaps - Exportación de Puntos',
+                title: 'JoseMaps - Exportación de Puntos',
                 text: 'Puntos de campo con fotos y coordenadas MAGNA-SIRGAS Origen Nacional',
                 files: [file]
             });

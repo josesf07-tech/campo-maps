@@ -1,6 +1,6 @@
 {
-  "name": "CampoMaps",
-  "short_name": "CampoMaps",
+  "name": "JoseMaps",
+  "short_name": "JoseMaps",
   "description": "Mapas offline con GPS, GeoPDF y coordenadas MAGNA-SIRGAS para trabajo de campo",
   "start_url": "./",
   "display": "standalone",

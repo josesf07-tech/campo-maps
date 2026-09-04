@@ -38,7 +38,7 @@ export async function exportUsoUsuariosToExcel(placemarks, filename = 'Censo_Uso
 async function exportWithExcelJS(placemarks, filename) {
     const ExcelJS = window.ExcelJS;
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'CampoMaps';
+    wb.creator = 'JoseMaps';
     wb.created = new Date();
 
     const ws = wb.addWorksheet('USO Y USUARIOS', {

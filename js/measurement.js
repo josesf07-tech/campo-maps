@@ -23,46 +23,22 @@ export class MeasurementTool {
 
         const div = document.createElement('div');
         div.id = 'measurement-toolbar';
-        div.className = 'hidden';
-        div.style.cssText = `
-            position: absolute;
-            bottom: calc(var(--nav-height) + 12px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(22, 33, 62, 0.95);
-            border: 1px solid var(--accent-primary);
-            border-radius: 12px;
-            padding: 10px 14px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            z-index: 1050;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            min-width: 290px;
-            max-width: 90vw;
-            backdrop-filter: blur(8px);
-        `;
+        div.className = 'measure-toolbar hidden';
 
         div.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="display: flex; gap: 6px;">
-                    <button type="button" id="btn-measure-dist" class="btn-secondary active" style="font-size: 11px; padding: 5px 10px; border-color: var(--accent-primary);">
-                        📏 Distancia & Azimut
-                    </button>
-                    <button type="button" id="btn-measure-area" class="btn-secondary" style="font-size: 11px; padding: 5px 10px;">
-                        📐 Área & Hectáreas
-                    </button>
+            <div class="row-between">
+                <div class="measure-modes">
+                    <button type="button" id="btn-measure-dist" class="btn-secondary btn-sm active">📏 Distancia</button>
+                    <button type="button" id="btn-measure-area" class="btn-secondary btn-sm">📐 Área</button>
                 </div>
-                <button type="button" id="btn-measure-close" style="background: none; border: none; color: #e74c3c; font-size: 16px; font-weight: bold; cursor: pointer; padding: 2px 6px;">✕</button>
-            </div>
-            <div id="measure-result" style="font-size: 13px; font-weight: 600; color: #fff; background: rgba(0,0,0,0.25); padding: 8px; border-radius: 6px; text-align: center;">
-                Toca puntos en el mapa para medir
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span id="measure-points-count" style="font-size: 10px; color: var(--text-secondary);">Puntos: 0</span>
-                <button type="button" id="btn-measure-clear" style="background: none; border: 1px solid #7f8c8d; color: #bdc3c7; font-size: 10px; border-radius: 4px; padding: 3px 8px; cursor: pointer;">
-                    🗑️ Limpiar
+                <button type="button" id="btn-measure-close" class="icon-btn" aria-label="Cerrar medición">
+                    <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
+            </div>
+            <div id="measure-result" class="measure-result">Toca puntos en el mapa para medir</div>
+            <div class="measure-footer">
+                <span id="measure-points-count">Puntos: 0</span>
+                <button type="button" id="btn-measure-clear" class="btn-ghost btn-xs">Limpiar</button>
             </div>
         `;
 
@@ -78,17 +54,13 @@ export class MeasurementTool {
         btnDist.addEventListener('click', () => {
             this.setMode('distance');
             btnDist.classList.add('active');
-            btnDist.style.borderColor = 'var(--accent-primary)';
             btnArea.classList.remove('active');
-            btnArea.style.borderColor = '';
         });
 
         btnArea.addEventListener('click', () => {
             this.setMode('area');
             btnArea.classList.add('active');
-            btnArea.style.borderColor = 'var(--accent-primary)';
             btnDist.classList.remove('active');
-            btnDist.style.borderColor = '';
         });
 
         btnClose.addEventListener('click', () => this.stop());
@@ -176,7 +148,7 @@ export class MeasurementTool {
         this.points.forEach((pt, idx) => {
             const marker = L.circleMarker([pt.lat, pt.lng], {
                 radius: 6,
-                fillColor: idx === 0 ? '#2ecc71' : (idx === this.points.length - 1 ? '#e74c3c' : '#3498db'),
+                fillColor: idx === 0 ? '#10b981' : (idx === this.points.length - 1 ? '#ef4444' : '#38bdf8'),
                 color: '#ffffff',
                 weight: 2,
                 opacity: 1,
@@ -189,20 +161,20 @@ export class MeasurementTool {
 
         if (this.mode === 'distance' && latlngs.length >= 2) {
             this.line = L.polyline(latlngs, {
-                color: '#2ecc71',
+                color: '#34d399',
                 weight: 3,
                 dashArray: '6, 6'
             }).addTo(map);
         } else if (this.mode === 'area' && latlngs.length >= 3) {
             this.polygon = L.polygon(latlngs, {
-                color: '#3498db',
+                color: '#38bdf8',
                 weight: 2.5,
-                fillColor: '#3498db',
-                fillOpacity: 0.25
+                fillColor: '#38bdf8',
+                fillOpacity: 0.22
             }).addTo(map);
         } else if (this.mode === 'area' && latlngs.length === 2) {
             this.line = L.polyline(latlngs, {
-                color: '#3498db',
+                color: '#38bdf8',
                 weight: 2,
                 dashArray: '4, 4'
             }).addTo(map);
@@ -243,10 +215,8 @@ export class MeasurementTool {
                 : `${totalDist.toFixed(1)} m`;
 
             resEl.innerHTML = `
-                <div style="font-size: 15px; color: #2ecc71;">📏 <strong>${distStr}</strong></div>
-                <div style="font-size: 12px; color: #a0aabf; margin-top: 2px;">
-                    🧭 Rumbo / Azimut: <strong style="color:#fff;">${azimuth.toFixed(1)}°</strong> (${quadrant})
-                </div>
+                <div class="big">${distStr}</div>
+                <div class="sub">🧭 Azimut: <strong>${azimuth.toFixed(1)}°</strong> (${quadrant})</div>
             `;
         } else {
             // Area mode
@@ -270,10 +240,8 @@ export class MeasurementTool {
                 : `${Math.round(perimeter)} m`;
 
             resEl.innerHTML = `
-                <div style="font-size: 15px; color: #3498db;">📐 <strong>${hectares.toFixed(4)} ha</strong> (${Math.round(areaM2).toLocaleString('es-CO')} m²)</div>
-                <div style="font-size: 12px; color: #a0aabf; margin-top: 2px;">
-                    Perímetro: <strong style="color:#fff;">${perimStr}</strong>
-                </div>
+                <div class="big sky">${hectares.toFixed(4)} ha</div>
+                <div class="sub">${Math.round(areaM2).toLocaleString('es-CO')} m² · Perímetro: <strong>${perimStr}</strong></div>
             `;
         }
     }

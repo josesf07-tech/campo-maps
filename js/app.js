@@ -1,10 +1,10 @@
-import { 
-    initDB, savePlacemark, getPlacemarks, deletePlacemark, 
-    saveTrack, getTracks, deleteTrack, 
-    saveSetting, getSetting, 
-    saveMap, getMaps, deleteMap, 
+import {
+    initDB, savePlacemark, getPlacemarks, deletePlacemark,
+    saveTrack, getTracks, deleteTrack,
+    saveSetting, getSetting,
+    saveMap, getMaps, getMap, deleteMap,
     saveProject, getProjects, getProject, deleteProject,
-    generateUUID, requestPersistentStorage 
+    generateUUID, requestPersistentStorage, clearAllData
 } from './storage.js';
 import { MapEngine } from './map-engine.js';
 import { GPSTracker } from './gps-tracker.js';
@@ -44,6 +44,67 @@ const state = {
     lastLoadedGeoPdfName: '',
 };
 
+const APP_VERSION = window.CAMPOMAPS_VERSION || 'v23';
+
+const ICONS = {
+    trash: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    route: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+    globe: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+    map: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>',
+    folder: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+    record: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>',
+    stop: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+    camera: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>'
+};
+
+const PM_ICON_MAP = { default: '📍', tree: '🌳', water: '💧', warning: '⚠️', camera: '📷' };
+
+function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function showLoading(message = 'Procesando...') {
+    const overlay = document.getElementById('loading-overlay');
+    const text = document.getElementById('loading-text');
+    if (text) text.textContent = message;
+    if (overlay) overlay.classList.remove('hidden');
+}
+
+function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.classList.add('hidden');
+}
+
+function openLightbox(url, caption = '') {
+    const box = document.getElementById('lightbox');
+    const img = document.getElementById('lightbox-img');
+    const cap = document.getElementById('lightbox-caption');
+    if (!box || !img) return;
+    img.src = url;
+    if (cap) cap.textContent = caption;
+    box.classList.remove('hidden');
+}
+
+function closeLightbox() {
+    const box = document.getElementById('lightbox');
+    const img = document.getElementById('lightbox-img');
+    if (box) box.classList.add('hidden');
+    if (img) setTimeout(() => { if (box && box.classList.contains('hidden')) img.src = ''; }, 250);
+}
+
+function setupLightbox() {
+    const box = document.getElementById('lightbox');
+    const btnClose = document.getElementById('lightbox-close');
+    if (btnClose) btnClose.addEventListener('click', closeLightbox);
+    if (box) box.addEventListener('click', (e) => { if (e.target === box) closeLightbox(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
+    window.__campoMapsOpenPhoto = openLightbox;
+}
+
+function emptyState(icon, text) {
+    return `<li class="empty-state"><div class="empty-icon">${icon}</div>${escapeHtml(text)}</li>`;
+}
+
 // ========== INITIALIZATION ==========
 async function initApp() {
     try {
@@ -56,13 +117,13 @@ async function initApp() {
 
         // Initialize GPS
         state.gps = new GPSTracker();
-        
+
         // Initialize track recorder
         state.trackRecorder = new TrackRecorder(state.gps, state.mapEngine);
-        
+
         // Initialize placemark manager
         state.placemarkManager = new PlacemarkManager(state.mapEngine);
-        
+
         // Initialize calibrator
         state.calibrator = new MapCalibrator();
 
@@ -81,11 +142,19 @@ async function initApp() {
         setupMapControls();
         setupSettings();
         setupModals();
+        setupLightbox();
+        setupDataReset();
+
+        const versionLabel = document.getElementById('app-version-label');
+        if (versionLabel) versionLabel.textContent = APP_VERSION;
+
+        // La lista de mapas refleja la capa base activa
+        state.mapEngine.onBaseLayerChange = () => { updateMapsList().catch(() => {}); };
 
         // Load saved data & projects
         await loadSavedData();
 
-        showToast('✅ CampoMaps listo');
+        showToast(`✅ CampoMaps listo · ${state.currentProjectName}`);
     } catch (e) {
         console.error('Error al iniciar la app:', e);
         showToast('❌ Error al iniciar la aplicación: ' + e.message);
@@ -103,8 +172,8 @@ async function loadSavedData() {
     try {
         // Initialize Project System
         const savedActiveProjId = await getSetting('activeProjectId');
-        await switchProject(savedActiveProjId?.value || 'default_proj');
-        
+        await switchProject(savedActiveProjId?.value || 'default_proj', { silent: true });
+
         // Load saved tracks and render them on map
         const tracks = await getTracks();
         tracks.forEach(track => {
@@ -112,19 +181,52 @@ async function loadSavedData() {
                 state.mapEngine.addTrackLine(track.points, track.color || '#FF4444', track.id);
             }
         });
-        
+
+        // Planos GeoPDF / calibrados guardados: volver a dibujarlos al reiniciar la app
+        const savedMaps = await getMaps();
+        savedMaps.forEach(m => {
+            const img = m.imageData || m.dataUrl || m.imageUrl;
+            if (img && m.bounds && !state.mapEngine.hasImageOverlay(m.id)) {
+                try {
+                    state.mapEngine.addImageOverlay(m.id, img, m.bounds, { opacity: (m.opacity !== undefined ? m.opacity : 1) });
+                } catch (e) {
+                    console.warn('No se pudo restaurar el plano', m.name, e);
+                }
+            }
+        });
+        if (savedMaps.length > 0) {
+            const last = savedMaps[savedMaps.length - 1];
+            if (last.bounds) {
+                state.lastLoadedGeoPdfBounds = last.bounds;
+                state.lastLoadedGeoPdfName = last.name || 'Plano';
+                if (state.tileDownloader) {
+                    state.tileDownloader.activeGeoPdfBounds = last.bounds;
+                    state.tileDownloader.activeGeoPdfName = state.lastLoadedGeoPdfName;
+                }
+            }
+        }
+
+        // Frecuencia GPS
+        const gpsFreq = await getSetting('gpsFrequency');
+        if (gpsFreq && gpsFreq.value) {
+            state.gps.setMinInterval(gpsFreq.value);
+            const sel = document.getElementById('select-gps-freq');
+            if (sel) sel.value = String(gpsFreq.value);
+        }
+
         // Load settings
         const coordFmt = await getSetting('coordFormat');
         if (coordFmt) state.coordFormat = coordFmt.value;
-        
+
         const unitsSetting = await getSetting('units');
         if (unitsSetting) state.units = unitsSetting.value;
-        
+
         const lightMode = await getSetting('lightMode');
         if (lightMode && lightMode.value) {
             document.body.classList.add('light-mode');
             const toggle = document.getElementById('toggle-light-mode');
             if (toggle) toggle.checked = true;
+            applyThemeColor();
         }
 
         // Update lists
@@ -168,22 +270,22 @@ function setupPanels() {
 function togglePanel(panelId) {
     const panel = document.getElementById(panelId);
     const overlay = document.getElementById('panel-overlay');
-    
+
     if (state.currentPanel === panelId) {
         closeAllPanels();
         return;
     }
-    
+
     // Close any open panel first
     closeAllPanels();
-    
+
     if (panel) {
         panel.classList.add('open');
         if (overlay) overlay.classList.remove('hidden');
         state.currentPanel = panelId;
-        
-        // Update active nav
-        document.querySelectorAll('#bottom-nav .nav-item').forEach(btn => {
+
+        // Update active nav (el botón GPS se gestiona por estado del GPS)
+        document.querySelectorAll('#bottom-nav .nav-item[data-target]').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.target === panelId);
         });
     }
@@ -194,7 +296,9 @@ function closeAllPanels() {
     const overlay = document.getElementById('panel-overlay');
     if (overlay) overlay.classList.add('hidden');
     state.currentPanel = null;
-    document.querySelectorAll('#bottom-nav .nav-item').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('#bottom-nav .nav-item[data-target]').forEach(btn => btn.classList.remove('active'));
+    const btnGps = document.getElementById('btn-nav-gps');
+    if (btnGps) btnGps.classList.toggle('active', !!state.gpsActive);
 }
 
 // ========== GPS ==========
@@ -202,7 +306,7 @@ function setupGPS() {
     const btnGps = document.getElementById('btn-nav-gps');
     const btnGpsCenter = document.getElementById('btn-gps-center');
     const topInfoBar = document.getElementById('top-info-bar');
-    
+
     if (btnGps) {
         btnGps.addEventListener('click', () => {
             if (!state.gpsActive) {
@@ -214,12 +318,12 @@ function setupGPS() {
             }
         });
     }
-    
+
     if (btnGpsCenter) {
         btnGpsCenter.addEventListener('click', async () => {
             showToast('📡 Obteniendo posición GPS...');
             btnGpsCenter.classList.add('loading');
-            
+
             // Auto start GPS if not active
             if (!state.gpsActive) {
                 startGPS();
@@ -259,30 +363,40 @@ function startGPS() {
     state.gps.onPositionUpdate = (pos) => {
         // Update GPS marker on map
         state.mapEngine.addGPSMarker(pos.lat, pos.lng, pos.accuracy, pos.heading);
-        
+
         // Auto-center if enabled with proper zoom
         if (state.autoCenter) {
             const currentZoom = state.mapEngine.getZoom();
             const targetZoom = currentZoom < 14 ? 16 : currentZoom;
             state.mapEngine.setView(pos.lat, pos.lng, targetZoom);
         }
-        
+
         // Update info bar
         updateInfoBar(pos);
     };
-    
-    state.gps.onError = (err) => {
-        showToast('⚠️ ' + err.message);
+
+    // Rumbo de brújula: solo rota la flecha del marcador (barato)
+    state.gps.onHeadingUpdate = (heading) => {
+        state.mapEngine.setGPSHeading(heading);
     };
-    
+
+    // Evita la lluvia de avisos: un mismo tipo de error se muestra máx. cada 30 s
+    let lastGpsError = { kind: null, at: 0 };
+    state.gps.onError = (err, kind) => {
+        const now = Date.now();
+        if (kind === lastGpsError.kind && (now - lastGpsError.at) < 30000) return;
+        lastGpsError = { kind, at: now };
+        showToast('⚠️ ' + err.message, kind === 'denied' ? 5000 : 3000);
+    };
+
     state.gps.start();
     state.gpsActive = true;
-    
+
     // Show info bar
     const topInfoBar = document.getElementById('top-info-bar');
     if (topInfoBar) topInfoBar.classList.remove('hidden');
     document.body.classList.add('has-top-bar');
-    
+
     showToast('📡 GPS Activado');
 }
 
@@ -290,12 +404,12 @@ function stopGPS() {
     state.gps.stop();
     state.mapEngine.removeGPSMarker();
     state.gpsActive = false;
-    
+
     // Hide info bar
     const topInfoBar = document.getElementById('top-info-bar');
     if (topInfoBar) topInfoBar.classList.add('hidden');
     document.body.classList.remove('has-top-bar');
-    
+
     showToast('GPS Desactivado');
 }
 
@@ -306,29 +420,29 @@ function updateInfoBar(pos) {
     };
 
     const magna = toMagnaSirgas(pos.lat, pos.lng);
-    setTextById('info-magna-n', `N: ${Math.round(magna.norte).toLocaleString('es-CO')} m`);
-    setTextById('info-magna-e', `E: ${Math.round(magna.este).toLocaleString('es-CO')} m`);
+    setTextById('info-magna-n', `${Math.round(magna.norte).toLocaleString('es-CO')} m`);
+    setTextById('info-magna-e', `${Math.round(magna.este).toLocaleString('es-CO')} m`);
     setTextById('info-coords-geo', `${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}`);
-    setTextById('info-alt', pos.altitude !== null ? `${pos.altitude.toFixed(0)} m` : '-- m');
+    setTextById('info-alt', (pos.altitude !== null && pos.altitude !== undefined) ? `${pos.altitude.toFixed(0)} m` : '--');
 
     const accEl = document.getElementById('info-acc');
     if (accEl) {
         const acc = pos.accuracy ? Math.round(pos.accuracy) : null;
+        accEl.classList.remove('q-good', 'q-mid', 'q-bad');
         if (acc !== null) {
             accEl.textContent = `±${acc} m`;
             if (acc <= 5) {
-                accEl.style.color = '#2ecc71'; // Green: Óptimo (cielo abierto)
+                accEl.classList.add('q-good');
                 accEl.title = 'Señal GNSS óptima';
             } else if (acc <= 15) {
-                accEl.style.color = '#f39c12'; // Yellow: Aceptable
+                accEl.classList.add('q-mid');
                 accEl.title = 'Señal GNSS media';
             } else {
-                accEl.style.color = '#e74c3c'; // Red: Baja (interiores/edificio)
-                accEl.title = 'Señal débil (posible rebote en edificio)';
+                accEl.classList.add('q-bad');
+                accEl.title = 'Señal débil (interiores o rebote en edificios)';
             }
         } else {
-            accEl.textContent = '-- m';
-            accEl.style.color = 'inherit';
+            accEl.textContent = '--';
         }
     }
 }
@@ -336,7 +450,7 @@ function updateInfoBar(pos) {
 // ========== TRACKS ==========
 function setupTracks() {
     const btnRecord = document.getElementById('btn-record-track');
-    
+
     if (btnRecord) {
         btnRecord.addEventListener('click', () => {
             if (!state.trackRecording) {
@@ -357,27 +471,27 @@ function startTrackRecording() {
         const btnGps = document.getElementById('btn-nav-gps');
         if (btnGps) btnGps.classList.add('active');
     }
-    
+
     state.trackRecorder.startRecording();
     state.trackRecording = true;
     state.trackPaused = false;
     state.trackStartTime = Date.now();
-    
+
     // Update UI
     const btnRecord = document.getElementById('btn-record-track');
     if (btnRecord) {
-        btnRecord.textContent = '⏹ Detener Grabación';
+        btnRecord.innerHTML = `${ICONS.stop}<span>Detener grabación</span>`;
         btnRecord.classList.remove('btn-success');
         btnRecord.classList.add('btn-danger');
     }
-    
+
     // Show recording indicator
     const indicator = document.getElementById('recording-indicator');
     if (indicator) indicator.classList.remove('hidden');
-    
+
     // Start track timer
     state.trackTimer = setInterval(() => updateTrackDisplay(), 1000);
-    
+
     closeAllPanels();
     showToast('🔴 Grabando ruta...');
 }
@@ -385,12 +499,12 @@ function startTrackRecording() {
 function resumeTrackRecording() {
     state.trackRecorder.resumeRecording();
     state.trackPaused = false;
-    
+
     const btnRecord = document.getElementById('btn-record-track');
     if (btnRecord) {
-        btnRecord.textContent = '⏹ Detener Grabación';
+        btnRecord.innerHTML = `${ICONS.stop}<span>Detener grabación</span>`;
     }
-    
+
     showToast('▶️ Grabación reanudada');
 }
 
@@ -398,24 +512,27 @@ async function stopTrackRecording() {
     const track = state.trackRecorder.stopRecording();
     state.trackRecording = false;
     state.trackPaused = false;
-    
+
     if (state.trackTimer) {
         clearInterval(state.trackTimer);
         state.trackTimer = null;
     }
-    
+
     // Update UI
     const btnRecord = document.getElementById('btn-record-track');
     if (btnRecord) {
-        btnRecord.textContent = 'Iniciar Grabación';
+        btnRecord.innerHTML = `${ICONS.record}<span>Iniciar grabación</span>`;
         btnRecord.classList.remove('btn-danger');
         btnRecord.classList.add('btn-success');
     }
-    
+
     // Hide recording indicator
     const indicator = document.getElementById('recording-indicator');
     if (indicator) indicator.classList.add('hidden');
-    
+
+    // La línea temporal 'current' se reemplaza por la ruta definitiva (con su id)
+    state.mapEngine.removeTrackLine('current');
+
     if (track && track.points && track.points.length > 1) {
         // Name the track
         const now = new Date();
@@ -423,16 +540,17 @@ async function stopTrackRecording() {
         track.date = now.toISOString();
         track.id = track.id || generateUUID();
         track.color = track.color || '#FF4444';
-        
+        state.mapEngine.addTrackLine(track.points, track.color, track.id);
+
         // Save to IndexedDB
         await saveTrack(track);
-        
+
         // Show stats
         showTrackStats(track);
-        
+
         // Update tracks list
         await updateTracksList();
-        
+
         showToast(`✅ Ruta guardada: ${track.points.length} puntos`);
     } else {
         showToast('Ruta muy corta, no se guardó');
@@ -449,20 +567,20 @@ function showTrackStats(track) {
         const el = document.getElementById(id);
         if (el) el.textContent = text;
     };
-    
+
     const dist = stats.distance || 0;
     setTextById('stat-dist', dist >= 1000 ? `${(dist/1000).toFixed(2)} km` : `${dist.toFixed(0)} m`);
-    
+
     const dur = stats.duration || 0;
     const h = Math.floor(dur / 3600000);
     const m = Math.floor((dur % 3600000) / 60000);
     const s = Math.floor((dur % 60000) / 1000);
     setTextById('stat-time', `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`);
-    
+
     setTextById('stat-avg-speed', `${((stats.avgSpeed || 0) * 3.6).toFixed(1)} km/h`);
     setTextById('stat-max-speed', `${((stats.maxSpeed || 0) * 3.6).toFixed(1)} km/h`);
     setTextById('stat-elevation', `↑${(stats.elevGain || 0).toFixed(0)} m / ↓${(stats.elevLoss || 0).toFixed(0)} m`);
-    
+
     // Show modal
     const modal = document.getElementById('modal-track-stats');
     if (modal) modal.classList.remove('hidden');
@@ -471,35 +589,31 @@ function showTrackStats(track) {
 async function updateTracksList() {
     const list = document.getElementById('list-tracks');
     if (!list) return;
-    
+
     const tracks = await getTracks();
-    
+
     // Keep the record button, clear the rest
     let html = '';
     tracks.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
+
     tracks.forEach(track => {
         const dist = track.stats?.distance || 0;
         const distStr = dist >= 1000 ? `${(dist/1000).toFixed(1)} km` : `${dist.toFixed(0)} m`;
         const date = track.date ? new Date(track.date).toLocaleDateString('es') : '';
-        
+
         html += `
         <li class="list-item" data-id="${track.id}">
-            <div class="item-icon" style="color: ${track.color || '#FF4444'}">
-                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-            </div>
+            <div class="item-icon" style="color: ${escapeHtml(track.color || '#FF4444')}">${ICONS.route}</div>
             <div class="item-details">
-                <h3 class="item-title">${track.name || 'Sin nombre'}</h3>
-                <p class="item-meta">${distStr} • ${date} • ${track.points?.length || 0} puntos</p>
+                <h3 class="item-title">${escapeHtml(track.name || 'Sin nombre')}</h3>
+                <p class="item-meta">${distStr} · ${date} · ${track.points?.length || 0} puntos</p>
             </div>
-            <button class="btn-icon btn-delete-track" data-id="${track.id}" aria-label="Eliminar">
-                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-            </button>
+            <button class="btn-icon btn-delete-track" data-id="${track.id}" aria-label="Eliminar ruta">${ICONS.trash}</button>
         </li>`;
     });
-    
-    list.innerHTML = html;
-    
+
+    list.innerHTML = html || emptyState('🥾', 'Aún no hay rutas grabadas');
+
     // Attach delete handlers
     list.querySelectorAll('.btn-delete-track').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -513,7 +627,7 @@ async function updateTracksList() {
             }
         });
     });
-    
+
     // Attach click to zoom handlers
     list.querySelectorAll('.list-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -538,32 +652,35 @@ function setupPlacemarks() {
             openPlacemarkModal({ lat: center.lat, lng: center.lng });
         });
     }
-    
+
     // Long press on map to add placemark
     state.mapEngine.onMapLongPress((e) => {
         openPlacemarkModal(e.latlng);
     });
-    
+
     // Icon selector
     document.querySelectorAll('.icon-option').forEach(opt => {
         opt.addEventListener('click', () => {
-            document.querySelectorAll('.icon-option').forEach(o => o.classList.remove('selected'));
+            document.querySelectorAll('.icon-option').forEach(o => {
+                o.classList.remove('selected');
+                o.setAttribute('aria-checked', 'false');
+            });
             opt.classList.add('selected');
+            opt.setAttribute('aria-checked', 'true');
             state.selectedIcon = opt.dataset.icon;
         });
     });
-    
+
     // Save placemark button
     const btnSave = document.getElementById('btn-save-placemark');
     if (btnSave) {
         btnSave.addEventListener('click', savePlacemarkFromModal);
     }
-    
+
     // Multi-photo capture with Camera (iPhone camera / native picker)
-    const btnPhoto = document.getElementById('btn-take-photo');
     const photoInput = document.getElementById('placemark-photo-input');
     const btnClearPhotos = document.getElementById('btn-clear-all-photos');
-    
+
     let currentPhotos = [];
 
     function renderPhotosGrid() {
@@ -571,36 +688,45 @@ function setupPlacemarks() {
         const container = document.getElementById('placemark-photos-container');
         const countLabel = document.getElementById('photos-count-label');
         const btnText = document.getElementById('btn-photo-text');
-        
+
         if (!grid || !container) return;
-        
+
         if (currentPhotos.length === 0) {
             container.classList.add('hidden');
-            if (btnText) btnText.textContent = 'Tomar Foto con Cámara';
+            if (btnText) btnText.textContent = 'Ráfaga en vivo';
             grid.innerHTML = '';
             return;
         }
-        
+
         container.classList.remove('hidden');
         if (countLabel) countLabel.textContent = `Fotos adjuntas (${currentPhotos.length})`;
-        if (btnText) btnText.textContent = `➕ Tomar Otra Foto (${currentPhotos.length} listas)`;
-        
+        if (btnText) btnText.textContent = `Ráfaga (${currentPhotos.length})`;
+
         grid.innerHTML = currentPhotos.map((photo, index) => {
             const pUrl = typeof photo === 'string' ? photo : (photo.url || photo.dataUrl);
             const pHeading = (typeof photo === 'object' && (photo.headingLabel || (photo.heading !== null && photo.heading !== undefined)))
                 ? (photo.headingLabel || `${Math.round(photo.heading)}°`)
                 : `#${index + 1}`;
             return `
-            <div style="position: relative; width: 78px; height: 82px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border-color); background: #111;">
-                <img src="${pUrl}" alt="Foto ${index + 1}" style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;" onclick="window.open('${pUrl}', '_blank')">
-                <button type="button" class="btn-del-photo" data-index="${index}" title="Eliminar esta foto" style="position: absolute; top: 2px; right: 2px; background: rgba(231,76,60,0.9); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; font-weight: bold;">✕</button>
-                <button type="button" class="btn-edit-heading" data-index="${index}" title="Toca para cambiar sentido de la foto" style="position: absolute; bottom: 2px; left: 2px; right: 2px; background: rgba(0,0,0,0.78); color: #2ecc71; border: none; font-size: 9px; padding: 2px 3px; border-radius: 3px; cursor: pointer; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;">
-                    🧭 ${pHeading}
-                </button>
+            <div class="photo-thumb">
+                <img src="${escapeHtml(pUrl)}" alt="Foto ${index + 1}" class="photo-open" data-index="${index}">
+                <button type="button" class="btn-del-photo" data-index="${index}" title="Eliminar esta foto" aria-label="Eliminar foto">✕</button>
+                <button type="button" class="btn-edit-heading" data-index="${index}" title="Cambiar el sentido de la foto">🧭 ${escapeHtml(pHeading)}</button>
             </div>
             `;
         }).join('');
-        
+
+        grid.querySelectorAll('.photo-open').forEach(img => {
+            img.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(img.dataset.index, 10);
+                const photo = currentPhotos[idx];
+                const pUrl = typeof photo === 'string' ? photo : (photo.url || photo.dataUrl);
+                const label = (typeof photo === 'object' && photo.headingLabel) ? ` · 🧭 ${photo.headingLabel}` : '';
+                openLightbox(pUrl, `Foto ${idx + 1} de ${currentPhotos.length}${label}`);
+            });
+        });
+
         grid.querySelectorAll('.btn-del-photo').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -739,7 +865,7 @@ function setupPlacemarks() {
 
             const currentHeading = (state.gps && state.gps.getHeading) ? state.gps.getHeading() : null;
             const cardinal = currentHeading !== null ? GPSTracker.headingToCardinal(currentHeading) : '';
-            const defaultHeadingLabel = currentHeading !== null 
+            const defaultHeadingLabel = currentHeading !== null
                 ? `${Math.round(currentHeading).toString().padStart(3, '0')}° ${cardinal}`
                 : '';
 
@@ -753,7 +879,7 @@ function setupPlacemarks() {
                     ctx.fillRect(0, bannerY, videoW, bannerH);
 
                     // Accent border
-                    ctx.fillStyle = '#2ecc71';
+                    ctx.fillStyle = '#34d399';
                     ctx.fillRect(0, bannerY, videoW, Math.max(3, Math.round(bannerH * 0.04)));
 
                     const fontSize = Math.max(12, Math.round(bannerH * 0.22));
@@ -773,7 +899,7 @@ function setupPlacemarks() {
 
                     // Line 2: MAGNA-SIRGAS Coordinates
                     const magna = toMagnaSirgas(targetLat, targetLng);
-                    ctx.fillStyle = '#2ecc71';
+                    ctx.fillStyle = '#34d399';
                     const esteFormatted = (magna && magna.este !== undefined) ? Math.round(magna.este).toLocaleString('es-CO') : '--';
                     const norteFormatted = (magna && magna.norte !== undefined) ? Math.round(magna.norte).toLocaleString('es-CO') : '--';
                     const line2 = `MAGNA Origen Nal. (EPSG:9377): N: ${norteFormatted} m | E: ${esteFormatted} m`;
@@ -873,7 +999,7 @@ function setupPlacemarks() {
 
             const currentHeading = (state.gps && state.gps.getHeading) ? state.gps.getHeading() : null;
             const cardinal = currentHeading !== null ? GPSTracker.headingToCardinal(currentHeading) : '';
-            const defaultHeadingLabel = currentHeading !== null 
+            const defaultHeadingLabel = currentHeading !== null
                 ? `${Math.round(currentHeading).toString().padStart(3, '0')}° ${cardinal}`
                 : '';
 
@@ -904,7 +1030,7 @@ function setupPlacemarks() {
             showToast("⚠️ Error al procesar fotos");
         }
     }
-    
+
     if (photoInput) {
         photoInput.addEventListener('change', async (e) => {
             await processPhotoFiles(Array.from(e.target.files || []));
@@ -918,7 +1044,7 @@ function setupPlacemarks() {
             photoNativeInput.value = '';
         });
     }
-    
+
     if (btnClearPhotos) {
         btnClearPhotos.addEventListener('click', () => {
             currentPhotos = [];
@@ -995,8 +1121,8 @@ function setupPlacemarks() {
             if (willOpen) {
                 censoFormBody.classList.remove('hidden');
                 if (censoArrow) {
-                    censoArrow.textContent = '▲ Ocultar';
-                    censoArrow.style.background = '#27ae60';
+                    censoArrow.textContent = 'Ocultar';
+                    censoArrow.classList.add('open');
                 }
                 setTimeout(() => {
                     const modalBody = toggleCensoHeader.closest('.modal-body');
@@ -1010,8 +1136,8 @@ function setupPlacemarks() {
             } else {
                 censoFormBody.classList.add('hidden');
                 if (censoArrow) {
-                    censoArrow.textContent = '▼ Activar';
-                    censoArrow.style.background = '#2980b9';
+                    censoArrow.textContent = 'Activar';
+                    censoArrow.classList.remove('open');
                 }
             }
         });
@@ -1026,7 +1152,7 @@ function setupPlacemarks() {
             }
             return pm.projectId === state.currentProjectId;
         });
-        return filtered.length > 0 ? filtered : allPms;
+        return filtered;
     }
 
     async function handleExportKmz() {
@@ -1061,17 +1187,21 @@ function setupPlacemarks() {
         try {
             const pms = await getActivePlacemarks();
             if (!pms || pms.length === 0) {
-                showToast('⚠️ No hay marcadores para exportar');
+                showToast(`⚠️ El proyecto "${state.currentProjectName}" no tiene marcadores para exportar`);
                 return;
             }
-            showToast('⚡ Generando paquete completo (KMZ, Word y Excel)...');
+            showLoading('Generando KMZ...');
             await handleExportKmz();
             await new Promise(r => setTimeout(r, 600));
+            showLoading('Generando registro fotográfico Word...');
             await handleExportDocx();
             await new Promise(r => setTimeout(r, 600));
+            showLoading('Generando censo Excel...');
             await handleExportExcelUso();
-            showToast('🎉 ¡Paquete completo (KMZ + Word + Excel) descargado!');
+            hideLoading();
+            showToast('🎉 Paquete completo (KMZ + Word + Excel) descargado');
         } catch (err) {
+            hideLoading();
             console.error('Error en exportación completa:', err);
             showToast('❌ Error en exportación: ' + (err.message || err));
         }
@@ -1085,11 +1215,11 @@ function setupPlacemarks() {
 
     // Make renderPhotosGrid accessible to modal open/close
     window.__campoMapsRenderPhotos = renderPhotosGrid;
-    window.__campoMapsClearPhotos = () => { 
-        currentPhotos = []; 
+    window.__campoMapsClearPhotos = () => {
+        currentPhotos = [];
         if (photoInput) photoInput.value = '';
         if (photoNativeInput) photoNativeInput.value = '';
-        renderPhotosGrid(); 
+        renderPhotosGrid();
     };
     window.__campoMapsGetPhotos = () => [...currentPhotos];
 }
@@ -1098,22 +1228,22 @@ let pendingPlacemarkLatLng = null;
 
 function openPlacemarkModal(latlng) {
     pendingPlacemarkLatLng = latlng;
-    
+
     // Reset form
     const nameInput = document.getElementById('pm-name');
     const descInput = document.getElementById('pm-desc');
     if (nameInput) nameInput.value = '';
     if (descInput) descInput.value = '';
-    
+
     // Reset icon selection
     document.querySelectorAll('.icon-option').forEach(o => o.classList.remove('selected'));
     const defaultIcon = document.querySelector('.icon-option[data-icon="default"]');
     if (defaultIcon) defaultIcon.classList.add('selected');
     state.selectedIcon = 'default';
-    
+
     // Reset photos
     if (window.__campoMapsClearPhotos) window.__campoMapsClearPhotos();
-    
+
     // Reset Censo form
     const checkCenso = document.getElementById('check-enable-censo');
     const censoBody = document.getElementById('censo-form-body');
@@ -1121,8 +1251,8 @@ function openPlacemarkModal(latlng) {
     if (checkCenso) checkCenso.checked = false;
     if (censoBody) censoBody.classList.add('hidden');
     if (censoArrow) {
-        censoArrow.textContent = '▼ Activar';
-        censoArrow.style.background = '#2980b9';
+        censoArrow.textContent = 'Activar';
+        censoArrow.classList.remove('open');
     }
 
     const censoIdCampo = document.getElementById('censo-id-campo');
@@ -1161,7 +1291,7 @@ function openPlacemarkModal(latlng) {
 
     if (latlng) {
         const magna = toMagnaSirgas(latlng.lat, latlng.lng);
-        if (statusMagna) statusMagna.textContent = `MAGNA: N: ${Math.round(magna.norte).toLocaleString('es-CO')} | E: ${Math.round(magna.este).toLocaleString('es-CO')}`;
+        if (statusMagna) statusMagna.textContent = `N: ${Math.round(magna.norte).toLocaleString('es-CO')} | E: ${Math.round(magna.este).toLocaleString('es-CO')}`;
     }
 
     const currentAcc = (state.gps && state.gps.lastPosition) ? state.gps.lastPosition.accuracy : null;
@@ -1192,7 +1322,7 @@ function openPlacemarkModal(latlng) {
 
                 pendingPlacemarkLatLng = { lat: avgPos.lat, lng: avgPos.lng };
                 const m = toMagnaSirgas(avgPos.lat, avgPos.lng);
-                if (statusMagna) statusMagna.textContent = `MAGNA: N: ${Math.round(m.norte).toLocaleString('es-CO')} | E: ${Math.round(m.este).toLocaleString('es-CO')}`;
+                if (statusMagna) statusMagna.textContent = `N: ${Math.round(m.norte).toLocaleString('es-CO')} | E: ${Math.round(m.este).toLocaleString('es-CO')}`;
                 if (statusAcc) statusAcc.textContent = `🎯 Promediado con éxito (±${avgPos.accuracy} m - 8 lecturas)`;
                 btnAverage.textContent = `✔ ±${avgPos.accuracy}m`;
                 showToast(`🎯 Coordenadas estabilizadas a ±${avgPos.accuracy} m`);
@@ -1211,11 +1341,11 @@ function openPlacemarkModal(latlng) {
 
 async function savePlacemarkFromModal() {
     if (!pendingPlacemarkLatLng) return;
-    
+
     const name = document.getElementById('pm-name')?.value || 'Marcador';
     const desc = document.getElementById('pm-desc')?.value || '';
     const photos = window.__campoMapsGetPhotos ? window.__campoMapsGetPhotos() : [];
-    
+
     // Helper to get selected chip values
     const getSelectedChips = (containerId) => {
         const container = document.getElementById(containerId);
@@ -1248,22 +1378,22 @@ async function savePlacemarkFromModal() {
         name,
         description: desc,
         icon: state.selectedIcon,
-        color: '#2ecc71',
+        color: '#10b981',
         photos: photos,
         censoAgua: censoData,
         projectId: state.currentProjectId || 'default_proj',
         createdAt: new Date().toISOString()
     };
-    
+
     await state.placemarkManager.addPlacemark(pendingPlacemarkLatLng, data);
-    
+
     // Close modal
     const modal = document.getElementById('modal-placemark');
     if (modal) modal.classList.add('hidden');
-    
+
     pendingPlacemarkLatLng = null;
     if (window.__campoMapsClearPhotos) window.__campoMapsClearPhotos();
-    
+
     await updatePlacemarksList();
     showToast(photos.length > 0 ? `📌 Marcador con ${photos.length} foto(s) guardado` : '📌 Marcador guardado');
 }
@@ -1271,7 +1401,7 @@ async function savePlacemarkFromModal() {
 async function updatePlacemarksList() {
     const list = document.getElementById('list-placemarks');
     if (!list) return;
-    
+
     const allPms = await getPlacemarks();
     const placemarks = allPms.filter(pm => {
         if (!state.currentProjectId || state.currentProjectId === 'default_proj') {
@@ -1280,28 +1410,28 @@ async function updatePlacemarksList() {
         return pm.projectId === state.currentProjectId;
     });
     let html = '';
-    
+
+    placemarks.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     placemarks.forEach(pm => {
-        const iconMap = { default: '📍', tree: '🌳', water: '💧', warning: '⚠️', camera: '📷' };
-        const icon = iconMap[pm.icon] || '📍';
+        const icon = PM_ICON_MAP[pm.icon] || '📍';
         const magna = toMagnaSirgas(pm.lat, pm.lng);
-        const hasPhoto = pm.photos && pm.photos.length > 0;
-        
+        const photoCount = Array.isArray(pm.photos) ? pm.photos.length : 0;
+        const hasCenso = !!pm.censoAgua;
+
         html += `
         <li class="list-item" data-id="${pm.id}">
             <div class="item-icon">${icon}</div>
             <div class="item-details">
-                <h3 class="item-title">${pm.name || 'Sin nombre'} ${hasPhoto ? '📷' : ''}</h3>
-                <p class="item-meta" style="font-size:11px; color:#2ecc71;">${magna.formatted}</p>
+                <h3 class="item-title">${escapeHtml(pm.name || 'Sin nombre')}</h3>
+                <p class="item-meta mono">${magna.formatted}</p>
+                ${(photoCount > 0 || hasCenso) ? `<div class="row mt-8" style="gap:4px">${photoCount > 0 ? `<span class="badge">📷 ${photoCount}</span>` : ''}${hasCenso ? '<span class="badge badge-sky">Censo</span>' : ''}</div>` : ''}
             </div>
-            <button class="btn-icon btn-delete-pm" data-id="${pm.id}" aria-label="Eliminar">
-                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-            </button>
+            <button class="btn-icon btn-delete-pm" data-id="${pm.id}" aria-label="Eliminar marcador">${ICONS.trash}</button>
         </li>`;
     });
-    
-    list.innerHTML = html;
-    
+
+    list.innerHTML = html || emptyState('📍', 'Sin marcadores en este proyecto. Usa el botón + sobre la mira.');
+
     // Delete handlers
     list.querySelectorAll('.btn-delete-pm').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -1314,7 +1444,7 @@ async function updatePlacemarksList() {
             }
         });
     });
-    
+
     // Click to zoom
     list.querySelectorAll('.list-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -1333,15 +1463,16 @@ function setupCalibration() {
     const preview = document.getElementById('calibration-preview');
     const btnFinish = document.getElementById('btn-finish-calibration');
     const calPoints = document.getElementById('calibration-points');
-    
+
     const pdfStatus = document.getElementById('pdf-status');
     const geopdfCard = document.getElementById('geopdf-detected-card');
     const geopdfInfo = document.getElementById('geopdf-info');
     const btnLoadGeoPdfDirect = document.getElementById('btn-load-geopdf-direct');
-    
+
+    let controlPoints = [];
     let currentLoadedResult = null;
     let imageFile = null;
-    
+
     // Open calibration modal button
     const btnOpenCal = document.getElementById('btn-open-calibrate');
     if (btnOpenCal) {
@@ -1358,20 +1489,24 @@ function setupCalibration() {
             if (file) {
                 imageFile = file;
                 try {
-                    showToast('Cargando mapa...');
+                    const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+                    showLoading(isPdf ? 'Procesando plano PDF (puede tardar unos segundos)...' : 'Procesando imagen...');
                     if (pdfStatus) {
-                        pdfStatus.style.display = 'block';
-                        pdfStatus.textContent = file.name.endsWith('.pdf') ? '📄 Procesando mapa PDF georreferenciado...' : '🖼️ Procesando imagen...';
+                        pdfStatus.classList.remove('hidden');
+                        pdfStatus.textContent = isPdf ? 'Procesando plano PDF georreferenciado...' : 'Procesando imagen...';
                     }
-                    
+
                     const result = await state.calibrator.loadFile(file);
                     currentLoadedResult = result;
-                    
+                    hideLoading();
+
                     if (preview) {
                         preview.src = result.url;
-                        preview.style.display = 'block';
+                        preview.classList.remove('hidden');
+                        const cont = document.getElementById('calibration-preview-container');
+                        if (cont) cont.classList.remove('empty');
                     }
-                    
+
                     if (result.hasGeoReference && result.bounds) {
                         if (geopdfCard) geopdfCard.classList.remove('hidden');
                         if (geopdfInfo) {
@@ -1379,11 +1514,11 @@ function setupCalibration() {
                             const magnaSW = toMagnaSirgas(b[0][0], b[0][1]);
                             const magnaNE = toMagnaSirgas(b[1][0], b[1][1]);
                             geopdfInfo.innerHTML = `
-                                <strong>Formato:</strong> ${result.geoMetadata?.format || 'GeoPDF'}<br>
-                                <strong>Coordenadas MAGNA-SIRGAS Origen Nacional:</strong><br>
-                                SO: ${magnaSW.formatted}<br>
-                                NE: ${magnaNE.formatted}<br>
-                                <em>¡El mapa ya tiene georreferenciación oficial! Puedes cargarlo con 1 toque.</em>
+                                <div><strong>Formato:</strong> ${escapeHtml(result.geoMetadata?.format || 'GeoPDF')}</div>
+                                <div class="mt-8"><strong>MAGNA-SIRGAS Origen Nacional</strong></div>
+                                <div class="mono text-accent">SO: ${magnaSW.formatted}</div>
+                                <div class="mono text-accent">NE: ${magnaNE.formatted}</div>
+                                <div class="mt-8">El plano ya tiene georreferenciación oficial. Puedes cargarlo con un toque.</div>
                             `;
                         }
                         if (pdfStatus) {
@@ -1393,16 +1528,17 @@ function setupCalibration() {
                     } else {
                         if (geopdfCard) geopdfCard.classList.add('hidden');
                         if (pdfStatus) {
-                            pdfStatus.textContent = result.isPdf 
-                                ? `📄 Mapa PDF cargado (${result.width}x${result.height} px). Listo para calibrar en MAGNA-SIRGAS o posicionar con GPS.` 
+                            pdfStatus.textContent = result.isPdf
+                                ? `📄 Mapa PDF cargado (${result.width}x${result.height} px). Listo para calibrar en MAGNA-SIRGAS o posicionar con GPS.`
                                 : `🖼️ Imagen cargada (${result.width}x${result.height} px).`;
                         }
                         showToast('Mapa cargado. Toca la imagen o usa "Posicionar plano en GPS".');
                     }
-                    
+
                     controlPoints = [];
                     if (calPoints) calPoints.innerHTML = '';
                 } catch (err) {
+                    hideLoading();
                     console.error("Error al cargar mapa:", err);
                     showToast('❌ Error al cargar archivo: ' + err.message);
                     if (pdfStatus) {
@@ -1413,57 +1549,6 @@ function setupCalibration() {
         });
     }
 
-    // Quick-test user's GeoPDF sample (Infraestructura_conImagen.pdf)
-    const btnLoadSample = document.getElementById('btn-load-sample-geopdf');
-    if (btnLoadSample) {
-        btnLoadSample.addEventListener('click', async () => {
-            try {
-                showToast('📄 Procesando Infraestructura_conImagen.pdf de prueba...');
-                if (pdfStatus) {
-                    pdfStatus.style.display = 'block';
-                    pdfStatus.textContent = '📄 Procesando Infraestructura_conImagen.pdf (29 MB)...';
-                }
-                const response = await fetch('/Infraestructura_conImagen.pdf');
-                if (!response.ok) throw new Error('No se pudo acceder al archivo local');
-                const blob = await response.blob();
-                const file = new File([blob], 'Infraestructura_conImagen.pdf', { type: 'application/pdf' });
-                imageFile = file;
-
-                const result = await state.calibrator.loadFile(file);
-                currentLoadedResult = result;
-
-                if (preview) {
-                    preview.src = result.url;
-                    preview.style.display = 'block';
-                }
-
-                if (result.hasGeoReference && result.bounds) {
-                    if (geopdfCard) geopdfCard.classList.remove('hidden');
-                    if (geopdfInfo) {
-                        const b = result.bounds;
-                        const magnaSW = toMagnaSirgas(b[0][0], b[0][1]);
-                        const magnaNE = toMagnaSirgas(b[1][0], b[1][1]);
-                        geopdfInfo.innerHTML = `
-                            <strong>Formato:</strong> ${result.geoMetadata?.format || 'GeoPDF'}<br>
-                            <strong>Coordenadas MAGNA-SIRGAS Origen Nacional:</strong><br>
-                            SO: ${magnaSW.formatted}<br>
-                            NE: ${magnaNE.formatted}<br>
-                            <em>¡El mapa ya tiene georreferenciación oficial! Puedes cargarlo con 1 toque.</em>
-                        `;
-                    }
-                    if (pdfStatus) {
-                        pdfStatus.textContent = `✅ Mapa GeoPDF detectado (${result.width}x${result.height} px) con georreferencia oficial`;
-                    }
-                    showToast('🎉 ¡GeoPDF válido detectado! Pulsa "Cargar Directamente".');
-                }
-            } catch (err) {
-                console.error("Error al cargar mapa de prueba:", err);
-                showToast('❌ Error: ' + err.message);
-                if (pdfStatus) pdfStatus.textContent = '❌ Error: ' + err.message;
-            }
-        });
-    }
-    
     // Direct 1-click loading for GeoPDF
     if (btnLoadGeoPdfDirect) {
         btnLoadGeoPdfDirect.addEventListener('click', async () => {
@@ -1472,11 +1557,11 @@ function setupCalibration() {
                 return;
             }
             try {
-                showToast('Cargando mapa GeoPDF en el visor...');
+                showLoading('Cargando plano en el visor...');
                 const mapId = generateUUID();
                 state.mapEngine.addImageOverlay(mapId, currentLoadedResult.url, currentLoadedResult.bounds);
                 state.mapEngine.fitBounds(currentLoadedResult.bounds);
-                
+
                 await saveMap({
                     id: mapId,
                     name: imageFile ? imageFile.name : 'Mapa GeoPDF',
@@ -1486,13 +1571,14 @@ function setupCalibration() {
                     format: currentLoadedResult.geoMetadata?.format || 'GeoPDF',
                     createdAt: new Date().toISOString()
                 });
-                
+
                 await updateMapsList();
-                
+                hideLoading();
+
                 const modal = document.getElementById('modal-calibrate');
                 if (modal) modal.classList.add('hidden');
-                
-                showToast('🗺️ ¡Mapa GeoPDF georreferenciado cargado con éxito!');
+
+                showToast('🗺️ Plano GeoPDF cargado y guardado');
 
                 state.lastLoadedGeoPdfBounds = currentLoadedResult.bounds;
                 state.lastLoadedGeoPdfName = imageFile ? imageFile.name : 'Mapa GeoPDF';
@@ -1501,19 +1587,16 @@ function setupCalibration() {
                     state.tileDownloader.activeGeoPdfName = state.lastLoadedGeoPdfName;
                 }
 
-                // Prompt smart 2km satellite buffer download
-                setTimeout(() => {
-                    if (state.tileDownloader) {
-                        state.tileDownloader.promptAndDownloadGeoPdfBuffer(currentLoadedResult.bounds, state.lastLoadedGeoPdfName);
-                    }
-                }, 600);
+                // Descarga (o pregunta) del buffer satelital de 2 km
+                setTimeout(() => maybeDownloadGeoPdfBuffer(currentLoadedResult.bounds, state.lastLoadedGeoPdfName), 600);
             } catch (err) {
+                hideLoading();
                 console.error('Error al guardar GeoPDF:', err);
                 showToast('❌ Error al guardar mapa: ' + err.message);
             }
         });
     }
-    
+
     // Mode toggles: MAGNA vs WGS84
     const btnModeMagna = document.getElementById('btn-cal-mode-magna');
     const btnModeGeo = document.getElementById('btn-cal-mode-geo');
@@ -1523,18 +1606,14 @@ function setupCalibration() {
     if (btnModeMagna && btnModeGeo) {
         btnModeMagna.addEventListener('click', () => {
             btnModeMagna.classList.add('active');
-            btnModeMagna.style.borderColor = 'var(--accent-primary)';
             btnModeGeo.classList.remove('active');
-            btnModeGeo.style.borderColor = '';
             inputsMagna?.classList.remove('hidden');
             inputsGeo?.classList.add('hidden');
         });
 
         btnModeGeo.addEventListener('click', () => {
             btnModeGeo.classList.add('active');
-            btnModeGeo.style.borderColor = 'var(--accent-primary)';
             btnModeMagna.classList.remove('active');
-            btnModeMagna.style.borderColor = '';
             inputsGeo?.classList.remove('hidden');
             inputsMagna?.classList.add('hidden');
         });
@@ -1546,14 +1625,14 @@ function setupCalibration() {
             const rect = preview.getBoundingClientRect();
             const x = ((e.clientX - rect.left) / rect.width) * 100;
             const y = ((e.clientY - rect.top) / rect.height) * 100;
-            
+
             const marker = document.createElement('div');
             marker.className = 'cal-point';
             marker.style.left = x + '%';
             marker.style.top = y + '%';
             marker.textContent = controlPoints.length + 1;
             if (calPoints) calPoints.appendChild(marker);
-            
+
             controlPoints.push({ pixelX: x, pixelY: y, lat: null, lng: null });
             showToast(`Punto ${controlPoints.length}: ingresa Norte y Este abajo`);
         });
@@ -1575,7 +1654,7 @@ function setupCalibration() {
             showToast(`✅ Punto fijado: ${label}`);
         }
     }
-    
+
     // MAGNA Origen Nacional point fixation
     const btnAddPoint = document.getElementById('btn-add-cal-point');
     if (btnAddPoint) {
@@ -1625,7 +1704,8 @@ function setupCalibration() {
     const btnFitGps = document.getElementById('btn-cal-fit-gps');
     if (btnFitGps) {
         btnFitGps.addEventListener('click', async () => {
-            if (!preview || !preview.src) {
+            // Nota: <img src=""> devuelve la URL del documento, por eso se valida el resultado cargado
+            if (!currentLoadedResult || !currentLoadedResult.url) {
                 showToast('⚠️ Primero selecciona un archivo PDF o imagen');
                 return;
             }
@@ -1652,13 +1732,13 @@ function setupCalibration() {
             ];
 
             const mapId = generateUUID();
-            state.mapEngine.addImageOverlay(mapId, preview.src, bounds);
+            state.mapEngine.addImageOverlay(mapId, currentLoadedResult.url, bounds);
             state.mapEngine.fitBounds(bounds);
 
             await saveMap({
                 id: mapId,
                 name: (imageFile ? imageFile.name : 'Plano') + ' (Ubicación GPS)',
-                imageData: preview.src,
+                imageData: currentLoadedResult.url,
                 bounds: bounds,
                 createdAt: new Date().toISOString()
             });
@@ -1670,20 +1750,20 @@ function setupCalibration() {
             showToast('🗺️ ¡Mapa posicionado sobre tu ubicación actual!');
         });
     }
-    
+
     if (btnFinish) {
         btnFinish.addEventListener('click', async () => {
-            if (!preview || !preview.src) {
+            if (!currentLoadedResult || !currentLoadedResult.url) {
                 showToast('⚠️ Primero selecciona un archivo de mapa');
                 return;
             }
-            
+
             // If it's a detected GeoPDF with bounds, load directly
             if (currentLoadedResult && currentLoadedResult.bounds) {
                 btnLoadGeoPdfDirect?.click();
                 return;
             }
-            
+
             const calibrated = controlPoints.filter(p => p.lat !== null);
             if (calibrated.length === 0) {
                 // No control points: offer GPS centering immediately
@@ -1691,12 +1771,12 @@ function setupCalibration() {
                 btnFitGps?.click();
                 return;
             }
-            
+
             try {
                 const img = new Image();
-                img.src = preview.src;
-                await new Promise(resolve => img.onload = resolve);
-                
+                img.src = currentLoadedResult.url;
+                await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = () => reject(new Error('No se pudo leer la imagen del plano')); });
+
                 let bounds;
                 if (calibrated.length >= 3) {
                     state.calibrator.controlPoints = [];
@@ -1722,28 +1802,28 @@ function setupCalibration() {
                         [p.lat + 0.005, p.lng + 0.005]
                     ];
                 }
-                
+
                 const mapId = generateUUID();
-                state.mapEngine.addImageOverlay(mapId, preview.src, bounds);
+                state.mapEngine.addImageOverlay(mapId, currentLoadedResult.url, bounds);
                 state.mapEngine.fitBounds(bounds);
-                
+
                 await saveMap({
                     id: mapId,
                     name: imageFile ? imageFile.name : 'Mapa calibrado',
-                    imageData: preview.src,
+                    imageData: currentLoadedResult.url,
                     bounds: [[bounds[0][0], bounds[0][1]], [bounds[1][0], bounds[1][1]]],
                     controlPoints: calibrated,
                     createdAt: new Date().toISOString()
                 });
-                
+
                 await updateMapsList();
-                
+
                 const modal = document.getElementById('modal-calibrate');
                 if (modal) modal.classList.add('hidden');
-                
+
                 controlPoints = [];
                 if (calPoints) calPoints.innerHTML = '';
-                
+
                 showToast('🗺️ Mapa calibrado y cargado con éxito');
 
                 state.lastLoadedGeoPdfBounds = bounds;
@@ -1753,12 +1833,8 @@ function setupCalibration() {
                     state.tileDownloader.activeGeoPdfName = state.lastLoadedGeoPdfName;
                 }
 
-                // Prompt smart 2km satellite buffer download
-                setTimeout(() => {
-                    if (state.tileDownloader) {
-                        state.tileDownloader.promptAndDownloadGeoPdfBuffer(bounds, state.lastLoadedGeoPdfName);
-                    }
-                }, 600);
+                // Descarga (o pregunta) del buffer satelital de 2 km
+                setTimeout(() => maybeDownloadGeoPdfBuffer(bounds, state.lastLoadedGeoPdfName), 600);
             } catch (e) {
                 console.error('Calibration error:', e);
                 showToast('❌ Error al calibrar: ' + e.message);
@@ -1767,46 +1843,60 @@ function setupCalibration() {
     }
 }
 
+/** Descarga el buffer de 2 km sin preguntar si el ajuste está activo; si no, pregunta. */
+async function maybeDownloadGeoPdfBuffer(bounds, name) {
+    if (!state.tileDownloader || !bounds) return;
+    let auto = false;
+    try {
+        const saved = await getSetting('autoDownloadSatelliteBuffer');
+        auto = !!(saved && saved.value);
+    } catch (e) {}
+    state.tileDownloader.promptAndDownloadGeoPdfBuffer(bounds, name, { auto });
+}
+
 async function updateMapsList() {
     const list = document.getElementById('list-maps');
     if (!list) return;
-    
+
     const maps = await getMaps();
-    
-    // Always show OSM base first
+    const baseDef = state.mapEngine ? state.mapEngine.getBaseLayerDef() : null;
+
+    // Capa base activa (se cambia con el botón de capas del mapa)
     let html = `
-    <li class="list-item">
-        <div class="item-icon map-icon">🌍</div>
+    <li class="list-item static" id="base-layer-item">
+        <div class="item-icon">${ICONS.globe}</div>
         <div class="item-details">
-            <h3 class="item-title">Mapa Base (Online)</h3>
-            <p class="item-meta">OpenStreetMap</p>
+            <h3 class="item-title">${escapeHtml(baseDef ? baseDef.label : 'Mapa base')}</h3>
+            <p class="item-meta">${escapeHtml(baseDef ? baseDef.description : 'Online')} · toca el botón de capas para cambiar</p>
         </div>
+        <span class="badge badge-accent">Base</span>
     </li>`;
-    
+
     maps.forEach(m => {
+        const opacity = Math.round(((m.opacity !== undefined ? m.opacity : 1) * 100));
+        const dateStr = m.createdAt ? new Date(m.createdAt).toLocaleDateString('es-CO') : '';
         html += `
-        <li class="list-item map-list-item" data-id="${m.id}" style="cursor: pointer;">
-            <div class="item-icon map-icon">🗺️</div>
-            <div class="item-details" style="flex: 1;">
-                <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                    <h3 class="item-title" style="margin: 0;">${m.name || 'Mapa'}</h3>
-                    <small style="font-size: 10px; color: var(--accent-primary); font-weight: 600;">${m.isGeoPdf ? 'GeoPDF' : 'Calibrado'}</small>
+        <li class="list-item map-list-item" data-id="${m.id}">
+            <div class="item-icon">${ICONS.map}</div>
+            <div class="item-details">
+                <div class="row-between">
+                    <h3 class="item-title">${escapeHtml(m.name || 'Plano')}</h3>
+                    <span class="badge ${m.isGeoPdf ? 'badge-accent' : 'badge-sky'}">${m.isGeoPdf ? 'GeoPDF' : 'Calibrado'}</span>
                 </div>
-                <p class="item-meta" style="font-size: 10px; margin: 2px 0 6px 0;">${new Date(m.createdAt).toLocaleDateString('es-CO')}</p>
-                <div style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.2); padding: 4px 6px; border-radius: 4px;" onclick="event.stopPropagation();">
-                    <span style="font-size: 10px; color: var(--text-secondary);">Opacidad:</span>
-                    <input type="range" min="10" max="100" value="100" class="map-opacity-slider" data-id="${m.id}" style="flex:1; height: 4px; accent-color: var(--accent-primary); cursor: pointer;">
-                    <span class="opacity-val" id="op-val-${m.id}" style="font-size: 10px; color: var(--text-secondary); min-width: 28px;">100%</span>
+                <p class="item-meta">${dateStr}</p>
+                <div class="opacity-row" data-stop>
+                    <span>Opacidad</span>
+                    <input type="range" min="10" max="100" value="${opacity}" class="map-opacity-slider" data-id="${m.id}" aria-label="Opacidad del plano">
+                    <span class="opacity-val" id="op-val-${m.id}">${opacity}%</span>
                 </div>
             </div>
-            <button class="btn-icon btn-delete-map" data-id="${m.id}" aria-label="Eliminar">
-                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-            </button>
+            <button class="btn-icon btn-delete-map" data-id="${m.id}" aria-label="Eliminar plano">${ICONS.trash}</button>
         </li>`;
     });
-    
+
     list.innerHTML = html;
-    
+    list.querySelectorAll('[data-stop]').forEach(el => el.addEventListener('click', (e) => e.stopPropagation()));
+
     // Tap on map item to center view
     list.querySelectorAll('.map-list-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -1822,7 +1912,7 @@ async function updateMapsList() {
         });
     });
 
-    // Opacity sliders
+    // Opacity sliders (se guarda al soltar)
     list.querySelectorAll('.map-opacity-slider').forEach(slider => {
         slider.addEventListener('input', (e) => {
             e.stopPropagation();
@@ -1831,6 +1921,14 @@ async function updateMapsList() {
             const label = document.getElementById(`op-val-${id}`);
             if (label) label.textContent = `${val}%`;
             state.mapEngine.setOverlayOpacity(id, val / 100);
+        });
+        slider.addEventListener('change', async () => {
+            const id = slider.dataset.id;
+            const target = maps.find(m => m.id === id);
+            if (target) {
+                target.opacity = parseInt(slider.value, 10) / 100;
+                try { await saveMap(target); } catch (e) {}
+            }
         });
     });
 
@@ -1858,9 +1956,9 @@ function setupMapControls() {
     const btnCrosshair = document.getElementById('btn-crosshair-toggle');
     const crosshairEl = document.getElementById('map-crosshair');
     const crosshairCoordsEl = document.getElementById('crosshair-coords');
-    
+
     let crosshairVisible = true;
-    
+
     // Crosshair live coordinates in MAGNA-SIRGAS Origen Nacional (EPSG:9377)
     const updateCrosshairCoords = () => {
         if (!state.mapEngine || !state.mapEngine.map) return;
@@ -1870,13 +1968,13 @@ function setupMapControls() {
             crosshairCoordsEl.textContent = `N: ${Math.round(magna.norte).toLocaleString('es-CO')} | E: ${Math.round(magna.este).toLocaleString('es-CO')}`;
         }
     };
-    
+
     if (state.mapEngine?.map) {
         state.mapEngine.map.on('move', updateCrosshairCoords);
         state.mapEngine.map.on('zoom', updateCrosshairCoords);
         updateCrosshairCoords();
     }
-    
+
     if (btnCrosshair && crosshairEl) {
         btnCrosshair.addEventListener('click', () => {
             crosshairVisible = !crosshairVisible;
@@ -1885,10 +1983,10 @@ function setupMapControls() {
             showToast(crosshairVisible ? '🎯 Mira de precisión activada' : 'Mira de precisión oculta');
         });
     }
-    
+
     if (btnZoomIn) btnZoomIn.addEventListener('click', () => state.mapEngine.map.zoomIn());
     if (btnZoomOut) btnZoomOut.addEventListener('click', () => state.mapEngine.map.zoomOut());
-    
+
     if (btnCompass) {
         btnCompass.addEventListener('click', () => {
             state.mapEngine.map.setBearing && state.mapEngine.map.setBearing(0);
@@ -1914,20 +2012,10 @@ function setupMapControls() {
     // Layer switcher toggle (Satélite Híbrido vs Esri Satélite vs Callejero OSM vs Topográfico)
     if (btnLayers) {
         btnLayers.addEventListener('click', () => {
-            const current = state.mapEngine.baseLayerType || 'satellite';
-            if (current === 'satellite' || current === 'hybrid') {
-                state.mapEngine.setBaseLayer('esri');
-                showToast('🌍 Satélite Esri (Fotografía satelital pura)');
-            } else if (current === 'esri') {
-                state.mapEngine.setBaseLayer('osm');
-                showToast('🗺️ Mapa Callejero (OpenStreetMap)');
-            } else if (current === 'osm') {
-                state.mapEngine.setBaseLayer('topo');
-                showToast('⛰️ Mapa Topográfico (Curvas de nivel)');
-            } else {
-                state.mapEngine.setBaseLayer('satellite');
-                showToast('🛰️ Google Híbrido (Satélite + Vías y Nombres)');
-            }
+            const next = state.mapEngine.nextBaseLayerType();
+            state.mapEngine.setBaseLayer(next);
+            const def = state.mapEngine.getBaseLayerDef(next);
+            showToast(`🗺️ ${def.label} · ${def.description}`);
         });
     }
 
@@ -1945,7 +2033,7 @@ function setupMapControls() {
             }
         });
     }
-    
+
     // Disable auto-center when user manually pans
     state.mapEngine.map?.on('dragstart', () => {
         state.autoCenter = false;
@@ -1959,9 +2047,11 @@ function setupSettings() {
     if (toggleLight) {
         toggleLight.addEventListener('change', async () => {
             document.body.classList.toggle('light-mode', toggleLight.checked);
+            applyThemeColor();
             await saveSetting('lightMode', toggleLight.checked);
         });
     }
+    applyThemeColor();
 
     // Photo stamping toggle & Project Name
     const toggleStamp = document.getElementById('toggle-stamp-photos');
@@ -1990,6 +2080,17 @@ function setupSettings() {
         });
     }
 
+    // Frecuencia de actualización GPS
+    const selectGpsFreq = document.getElementById('select-gps-freq');
+    if (selectGpsFreq) {
+        selectGpsFreq.addEventListener('change', async () => {
+            const ms = parseInt(selectGpsFreq.value, 10) || 1000;
+            state.gps.setMinInterval(ms);
+            await saveSetting('gpsFrequency', ms);
+            showToast(`📡 GPS cada ${ms / 1000} s`);
+        });
+    }
+
     // Expose saveSetting globally for modal quick toggles
     window.__campoMapsSaveSetting = saveSetting;
 
@@ -2015,6 +2116,11 @@ function setupSettings() {
     })();
 }
 
+function applyThemeColor() {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', document.body.classList.contains('light-mode') ? '#ffffff' : '#0d1424');
+}
+
 // ========== MODALS ==========
 function setupModals() {
     // Close modal buttons
@@ -2024,14 +2130,49 @@ function setupModals() {
             if (modal) modal.classList.add('hidden');
         });
     });
-    
-    // Click outside modal to close
+
+    // Click outside modal to close (excepto formularios con datos: data-no-dismiss)
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+            if (e.target === modal && !modal.hasAttribute('data-no-dismiss')) {
                 modal.classList.add('hidden');
             }
         });
+    });
+
+    // Escape cierra el modal visible (salvo la cámara)
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const open = Array.from(document.querySelectorAll('.modal:not(.hidden)')).pop();
+        if (open && open.id !== 'modal-camera' && !open.hasAttribute('data-no-dismiss')) open.classList.add('hidden');
+    });
+}
+
+// ========== BORRADO DE DATOS ==========
+function setupDataReset() {
+    const btn = document.getElementById('btn-clear-all-data');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+        const ok = confirm('Se borrarán TODOS los proyectos, marcadores, fotos, rutas, planos y mapas offline guardados en este dispositivo.\n\nEsta acción no se puede deshacer. ¿Continuar?');
+        if (!ok) return;
+        const ok2 = confirm('Última confirmación: ¿borrar todos los datos locales de CampoMaps?');
+        if (!ok2) return;
+        try {
+            showLoading('Borrando datos locales...');
+            if (state.gpsActive) stopGPS();
+            await clearAllData();
+            if ('caches' in window) {
+                const keys = await caches.keys();
+                await Promise.all(keys.filter(k => k.startsWith('campo-maps-tiles')).map(k => caches.delete(k)));
+            }
+            hideLoading();
+            showToast('🧹 Datos borrados. Reiniciando...');
+            setTimeout(() => window.location.reload(), 900);
+        } catch (err) {
+            hideLoading();
+            console.error('Error borrando datos:', err);
+            showToast('❌ No se pudieron borrar los datos: ' + (err.message || err));
+        }
     });
 }
 
@@ -2039,18 +2180,25 @@ function setupModals() {
 function showToast(message, duration = 3000) {
     const container = document.getElementById('toast-container');
     if (!container) return;
-    
+
     const toast = document.createElement('div');
-    toast.className = 'toast';
+    let type = '';
+    if (/^(❌|🛑)/.test(message)) type = ' toast-error';
+    else if (/^(⚠️|⚠)/.test(message)) type = ' toast-warn';
+    else if (/^(📡|📄|📥|📦|⚡|🗺️|🛰️)/.test(message)) type = ' toast-info';
+    toast.className = 'toast' + type;
     toast.textContent = message;
-    
+
+    // Máximo 3 avisos visibles a la vez
+    while (container.children.length >= 3) container.removeChild(container.firstChild);
+
     container.appendChild(toast);
-    
+
     // Trigger animation
     requestAnimationFrame(() => {
         toast.classList.add('show');
     });
-    
+
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => {
@@ -2130,7 +2278,7 @@ async function setupProjects() {
     }
 }
 
-async function switchProject(projectId) {
+async function switchProject(projectId, { silent = false } = {}) {
     let proj = await getProject(projectId);
     if (!proj) {
         const projects = await getProjects();
@@ -2176,8 +2324,11 @@ async function switchProject(projectId) {
     // If project has an associated map (GeoPDF), activate and load it
     if (proj.mapId) {
         const mapData = await getMap(proj.mapId);
-        if (mapData && state.mapEngine) {
-            state.mapEngine.addImageOverlay(mapData.id, mapData.dataUrl, mapData.bounds, { opacity: mapData.opacity || 0.85 });
+        const img = mapData ? (mapData.imageData || mapData.dataUrl || mapData.imageUrl) : null;
+        if (mapData && img && mapData.bounds && state.mapEngine) {
+            if (!state.mapEngine.hasImageOverlay(mapData.id)) {
+                state.mapEngine.addImageOverlay(mapData.id, img, mapData.bounds, { opacity: mapData.opacity !== undefined ? mapData.opacity : 1 });
+            }
             state.mapEngine.fitBounds(mapData.bounds);
             state.lastLoadedGeoPdfBounds = mapData.bounds;
             state.lastLoadedGeoPdfName = mapData.name || 'Plano GeoPDF';
@@ -2192,12 +2343,12 @@ async function switchProject(projectId) {
     const modalProjects = document.getElementById('modal-projects');
     if (modalProjects) modalProjects.classList.add('hidden');
 
-    showToast(`📁 Proyecto activo: ${proj.name}`);
+    if (!silent) showToast(`📁 Proyecto activo: ${proj.name}`);
 }
 
 async function loadPlacemarksForProject(projectId = null) {
     const targetProjId = projectId || state.currentProjectId;
-    
+
     // Clear existing map markers and vision cones
     if (state.placemarkManager) {
         state.placemarkManager.clearAll();
@@ -2249,23 +2400,22 @@ async function updateProjectsList() {
         const dateStr = p.createdAt ? new Date(p.createdAt).toLocaleDateString('es-CO') : '';
 
         return `
-            <li class="list-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: ${isActive ? 'rgba(46, 204, 113, 0.12)' : 'rgba(255,255,255,0.03)'}; border: 1px solid ${isActive ? 'var(--accent-primary)' : 'var(--border-color)'}; border-radius: 8px; margin-bottom: 8px;">
-                <div style="flex: 1; min-width: 0;">
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <strong style="color: ${isActive ? 'var(--accent-primary)' : '#fff'}; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                            📁 ${p.name}
-                        </strong>
-                        ${isActive ? '<span style="background: var(--accent-primary); color: #111; font-size: 9px; font-weight: bold; padding: 1px 5px; border-radius: 10px;">ACTIVO</span>' : ''}
+            <li class="list-item project-item static ${isActive ? 'active' : ''}">
+                <div class="item-icon">${ICONS.folder}</div>
+                <div class="item-details">
+                    <div class="item-title">
+                        <span class="truncate">${escapeHtml(p.name)}</span>
+                        ${isActive ? '<span class="badge badge-solid">Activo</span>' : ''}
                     </div>
-                    ${p.description ? `<p style="font-size: 11px; color: var(--text-secondary); margin: 2px 0 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.description}</p>` : ''}
-                    <div style="font-size: 10px; color: #888; margin-top: 4px;">
-                        📍 ${pmsCount} punto(s) · 📅 ${dateStr}
-                    </div>
+                    ${p.description ? `<p class="item-meta truncate">${escapeHtml(p.description)}</p>` : ''}
+                    <div class="item-meta text-faint">📍 ${pmsCount} punto${pmsCount === 1 ? '' : 's'} · ${dateStr}</div>
                 </div>
-                <div style="display: flex; gap: 6px; align-items: center; margin-left: 8px;">
-                    ${!isActive ? `<button type="button" class="btn-activate-project btn-secondary" data-id="${p.id}" style="font-size: 10px; padding: 4px 8px;">Activar</button>` : ''}
-                    <button type="button" class="btn-export-project-kmz btn-outline" data-id="${p.id}" title="Exportar este proyecto a KMZ" style="font-size: 10px; padding: 4px 6px;">KMZ</button>
-                    ${!isActive && projects.length > 1 ? `<button type="button" class="btn-delete-project" data-id="${p.id}" title="Eliminar proyecto" style="background: none; border: none; color: #e74c3c; font-size: 14px; cursor: pointer; padding: 2px;">🗑️</button>` : ''}
+                <div class="item-actions">
+                    ${!isActive ? `<button type="button" class="btn-activate-project btn-primary btn-xs" data-id="${p.id}">Activar</button>` : ''}
+                    <div class="row" style="gap:2px">
+                        <button type="button" class="btn-export-project-kmz btn-ghost sky btn-xs" data-id="${p.id}" title="Exportar este proyecto a KMZ">KMZ</button>
+                        ${!isActive && projects.length > 1 ? `<button type="button" class="btn-delete-project btn-icon" data-id="${p.id}" title="Eliminar proyecto" aria-label="Eliminar proyecto">${ICONS.trash}</button>` : ''}
+                    </div>
                 </div>
             </li>
         `;

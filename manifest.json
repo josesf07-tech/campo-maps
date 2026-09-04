@@ -1,22 +1,31 @@
 {
   "name": "CampoMaps",
   "short_name": "CampoMaps",
-  "description": "Mapas offline con GPS para trabajo de campo",
+  "description": "Mapas offline con GPS, GeoPDF y coordenadas MAGNA-SIRGAS para trabajo de campo",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#16213e",
+  "background_color": "#0d1424",
+  "theme_color": "#0d1424",
   "orientation": "any",
   "icons": [
     {
       "src": "assets/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "assets/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
-  ]
+  ],
+  "lang": "es"
 }

@@ -3,100 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
-    <!-- iOS PWA Meta Tags -->
+
+    <!-- iOS PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="CampoMaps">
-    
+    <meta name="theme-color" content="#0d1424">
+    <meta name="description" content="Mapas offline con GPS, GeoPDF y coordenadas MAGNA-SIRGAS para trabajo de campo">
+
     <title>CampoMaps - Mapas Offline</title>
-    
-    <!-- Manifest -->
+
     <link rel="manifest" href="manifest.json">
-    
+    <link rel="icon" href="favicon.ico">
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+
+    <!-- Versión única de la app (compartida con el Service Worker) -->
+    <script src="js/version.js?v=23"></script>
+
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    
-    <!-- PDF.js for GeoPDF support -->
+
+    <!-- PDF.js para GeoPDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         if (window.pdfjsLib) {
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
     </script>
-    
-    <!-- Proj4js for MAGNA-SIRGAS Origen Nacional (EPSG:9377) -->
+
+    <!-- Proj4js para MAGNA-SIRGAS Origen Nacional (EPSG:9377) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.2/proj4.js"></script>
 
-    <!-- JSZip for KMZ and DOCX export -->
+    <!-- JSZip para KMZ y DOCX -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    
-    <!-- SheetJS for Excel (.xlsx) export -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-    <!-- ExcelJS for embedding photos in Excel (.xlsx) -->
+    <!-- SheetJS y ExcelJS para Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-    
+
     <script>
-        // Force purge any old cached versions on clients
-        if ('caches' in window) {
-            caches.keys().then(keys => {
-                keys.forEach(k => {
-                    if (k.startsWith('campo-maps-') && !k.includes('-v22')) {
-                        console.log('Purging outdated cache:', k);
+        // Purga cachés de versiones anteriores (el SW también lo hace al activarse)
+        (function () {
+            if (!('caches' in window) || !window.CAMPOMAPS_VERSION) return;
+            var current = '-' + window.CAMPOMAPS_VERSION;
+            caches.keys().then(function (keys) {
+                keys.forEach(function (k) {
+                    if (k.indexOf('campo-maps-') === 0 && k.indexOf('campo-maps-tiles') !== 0 && k.indexOf(current) === -1) {
                         caches.delete(k);
                     }
                 });
-            });
-        }
+            }).catch(function () {});
+        })();
     </script>
 
-    <!-- App CSS -->
-    <link rel="stylesheet" href="css/style.css?v=22">
+    <link rel="stylesheet" href="css/style.css?v=23">
 </head>
 <body>
 
-    <!-- App Shell Container -->
+    <!-- Iconos SVG reutilizables -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <symbol id="i-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+            <symbol id="i-layers" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 12 12 17 22 12"/><polyline points="2 17 12 22 22 17"/></symbol>
+            <symbol id="i-ruler" viewBox="0 0 24 24"><path d="M21.3 15.3l-6.6-6.6a1 1 0 0 0-1.4 0l-1.6 1.6 1.4 1.4-1.4 1.4-1.4-1.4-1.4 1.4 1.4 1.4-1.4 1.4-1.4-1.4-1.6 1.6a1 1 0 0 0 0 1.4l6.6 6.6a1 1 0 0 0 1.4 0l8-8a1 1 0 0 0 0-1.4z"/></symbol>
+            <symbol id="i-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></symbol>
+            <symbol id="i-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+            <symbol id="i-minus" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+            <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></symbol>
+            <symbol id="i-locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-14 0"/><line x1="12" y1="5" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="19"/><line x1="5" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="19" y2="12"/></symbol>
+            <symbol id="i-gps" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></symbol>
+            <symbol id="i-route" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
+            <symbol id="i-pin" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></symbol>
+            <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+            <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+            <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+            <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+            <symbol id="i-camera" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></symbol>
+            <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></symbol>
+            <symbol id="i-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+            <symbol id="i-refresh" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></symbol>
+            <symbol id="i-satellite" viewBox="0 0 24 24"><path d="M13 7 9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4Z"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></symbol>
+            <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+            <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+            <symbol id="i-chevron-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
+            <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></symbol>
+            <symbol id="i-map" viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></symbol>
+            <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+            <symbol id="i-record" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></symbol>
+            <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+            <symbol id="i-package" viewBox="0 0 24 24"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></symbol>
+        </defs>
+    </svg>
+
     <div id="app-container">
-        
-        <!-- Top Info Bar (GPS Data - MAGNA-SIRGAS Origen Nacional) -->
-        <div id="top-info-bar" class="hidden">
+
+        <!-- HUD superior: telemetría GPS en MAGNA-SIRGAS Origen Nacional -->
+        <div id="top-info-bar" class="hidden" role="status" aria-live="polite">
             <div class="info-item">
-                <span class="info-label" style="color: #2ecc71;">NORTE (MAGNA)</span>
-                <span id="info-magna-n" class="info-value">-- m</span>
+                <span class="info-label accent">Norte</span>
+                <span id="info-magna-n" class="info-value accent">-- m</span>
             </div>
             <div class="info-item">
-                <span class="info-label" style="color: #2ecc71;">ESTE (MAGNA)</span>
-                <span id="info-magna-e" class="info-value">-- m</span>
+                <span class="info-label accent">Este</span>
+                <span id="info-magna-e" class="info-value accent">-- m</span>
             </div>
             <div class="info-item">
-                <span class="info-label">LAT / LNG</span>
+                <span class="info-label">Lat / Lng</span>
                 <span id="info-coords-geo" class="info-value">--</span>
             </div>
             <div class="info-item">
-                <span class="info-label">ALT</span>
-                <span id="info-alt" class="info-value">-- m</span>
+                <span class="info-label">Alt</span>
+                <span id="info-alt" class="info-value">--</span>
             </div>
             <div class="info-item">
-                <span class="info-label">PREC</span>
-                <span id="info-acc" class="info-value">-- m</span>
+                <span class="info-label">Prec</span>
+                <span id="info-acc" class="info-value">--</span>
             </div>
         </div>
 
-        <!-- Project Selector Badge (Top Left) -->
+        <!-- Cápsula de proyecto activo -->
         <div id="project-bar">
-            <button id="btn-open-projects" type="button" title="Toca para cambiar o crear proyectos">
+            <button id="btn-open-projects" type="button" title="Cambiar o crear proyecto">
                 <span class="project-dot"></span>
-                <span>📁</span>
-                <span id="active-project-label" style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Proyecto General</span>
-                <span style="font-size: 9px; color: var(--accent-primary); margin-left: 2px;">▼</span>
+                <svg width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><use href="#i-folder"/></svg>
+                <span id="active-project-label">Proyecto General</span>
+                <svg class="caret" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><use href="#i-chevron-down"/></svg>
             </button>
         </div>
 
-        <!-- Full Screen Map Container -->
+        <!-- Mapa -->
         <div id="map"></div>
 
-        <!-- Central Precision Crosshair (Mira / Puntero de Centro estilo Avenza) -->
+        <!-- Mira central de precisión -->
         <div id="map-crosshair" class="map-crosshair">
             <div class="crosshair-target">
                 <div class="crosshair-circle"></div>
@@ -104,443 +143,426 @@
             <div class="crosshair-coords" id="crosshair-coords">--</div>
         </div>
 
-        <!-- Map Controls (Right Side) -->
-        <div class="map-controls">
-            <button id="btn-quick-projects" class="control-btn" aria-label="Gestor de Proyectos" title="Gestor de Proyectos / Obras">
-                <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        <!-- Dock de controles -->
+        <div class="map-controls" role="toolbar" aria-label="Controles del mapa">
+            <button id="btn-quick-projects" class="control-btn" aria-label="Gestor de proyectos" title="Gestor de proyectos">
+                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-folder"/></svg>
             </button>
-            <button id="btn-layers" class="control-btn" aria-label="Cambiar Capas" title="Satélite / Callejero / Topográfico">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 12 12 17 22 12"></polyline><polyline points="2 17 12 22 22 17"></polyline></svg>
+            <button id="btn-layers" class="control-btn" aria-label="Cambiar capa base" title="Satélite / Callejero / Topográfico">
+                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-layers"/></svg>
             </button>
-            <button id="btn-measure-toggle" class="control-btn" aria-label="Medir Distancia y Área" title="Medir Distancia, Azimut y Área">
-                <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M21.3 15.3l-6.6-6.6a1 1 0 0 0-1.4 0l-1.6 1.6 1.4 1.4-1.4 1.4-1.4-1.4-1.4 1.4 1.4 1.4-1.4 1.4-1.4-1.4-1.6 1.6a1 1 0 0 0 0 1.4l6.6 6.6a1 1 0 0 0 1.4 0l8-8a1 1 0 0 0 0-1.4z"></path></svg>
+            <button id="btn-measure-toggle" class="control-btn" aria-label="Medir distancia y área" title="Medir distancia, azimut y área">
+                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-ruler"/></svg>
             </button>
-            <button id="btn-crosshair-toggle" class="control-btn active" aria-label="Mira central">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="3" x2="12" y2="7"></line><line x1="12" y1="17" x2="12" y2="21"></line><line x1="3" y1="12" x2="7" y2="12"></line><line x1="17" y1="12" x2="21" y2="12"></line></svg>
+            <button id="btn-crosshair-toggle" class="control-btn active" aria-label="Mira central" title="Mostrar u ocultar mira central">
+                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-crosshair"/></svg>
             </button>
             <button id="btn-zoom-in" class="control-btn" aria-label="Acercar">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <svg stroke="currentColor" stroke-width="2.2" fill="none"><use href="#i-plus"/></svg>
             </button>
             <button id="btn-zoom-out" class="control-btn" aria-label="Alejar">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <svg stroke="currentColor" stroke-width="2.2" fill="none"><use href="#i-minus"/></svg>
             </button>
-            <button id="btn-compass" class="control-btn" aria-label="Brújula">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+            <button id="btn-compass" class="control-btn" aria-label="Norte arriba" title="Norte arriba">
+                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-compass"/></svg>
             </button>
-            <button id="btn-gps-center" class="control-btn" aria-label="Centrar GPS">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 0 0-14 0"></path><line x1="12" y1="5" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="19"></line><line x1="5" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="19" y2="12"></line></svg>
+            <button id="btn-gps-center" class="control-btn" aria-label="Centrar en mi posición" title="Centrar en mi posición GPS">
+                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-locate"/></svg>
             </button>
         </div>
 
-        <!-- Floating Action Button -->
-        <button id="fab-add-placemark" class="fab" aria-label="Añadir Marcador">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <!-- Botón flotante: nuevo marcador -->
+        <button id="fab-add-placemark" class="fab" aria-label="Añadir marcador en la mira">
+            <svg stroke="currentColor" fill="none"><use href="#i-plus"/></svg>
         </button>
 
-        <!-- Bottom Navigation Bar -->
-        <nav id="bottom-nav">
+        <!-- Navegación inferior -->
+        <nav id="bottom-nav" aria-label="Navegación principal">
             <button class="nav-item" data-target="panel-maps">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-map"/></svg>
                 <span>Mapas</span>
             </button>
             <button class="nav-item" id="btn-nav-gps">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-gps"/></svg>
                 <span>GPS</span>
             </button>
             <button class="nav-item" data-target="panel-tracks">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-route"/></svg>
                 <span>Rutas</span>
                 <span id="recording-indicator" class="hidden"></span>
             </button>
             <button class="nav-item" data-target="panel-placemarks">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-pin"/></svg>
                 <span>Marcadores</span>
             </button>
             <button class="nav-item" data-target="panel-settings">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-settings"/></svg>
                 <span>Ajustes</span>
             </button>
         </nav>
 
-        <!-- Side Panels -->
+        <!-- Paneles laterales -->
         <div class="panel-overlay hidden" id="panel-overlay"></div>
 
-        <aside id="panel-maps" class="side-panel">
+        <aside id="panel-maps" class="side-panel" aria-label="Mapas y proyectos">
             <header class="panel-header">
-                <h2>Mis Mapas y Proyectos</h2>
-                <button class="btn-close-panel"><svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                <div>
+                    <h2>Mapas y proyectos</h2>
+                    <div class="panel-subtitle">Planos GeoPDF, calibración y mapa base offline</div>
+                </div>
+                <button class="btn-close-panel" aria-label="Cerrar panel"><svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-x"/></svg></button>
             </header>
             <div class="panel-content">
-                <!-- Active Project Card -->
-                <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(14, 165, 233, 0.12) 100%); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 12px; margin-bottom: 14px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                        <span style="font-size: 11px; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 0.5px;">📁 Proyecto Activo</span>
-                        <span style="font-size: 10px; background: rgba(16, 185, 129, 0.25); color: #34d399; padding: 2px 8px; border-radius: 10px; font-weight: 700;">En Uso</span>
+                <div class="card card-accent">
+                    <div class="row-between">
+                        <span class="card-title">Proyecto activo</span>
+                        <span class="badge badge-accent">En uso</span>
                     </div>
-                    <div id="panel-maps-project-name" style="font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 8px;">Proyecto General</div>
-                    <button id="btn-panel-maps-switch-project" type="button" class="btn-secondary full-width" style="font-size: 12px; padding: 8px; font-weight: 600; border-color: rgba(16, 185, 129, 0.5); color: #34d399; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                        <span>🔄</span> Cambiar o Crear Proyecto
+                    <div id="panel-maps-project-name" class="card-heading truncate">Proyecto General</div>
+                    <button id="btn-panel-maps-switch-project" type="button" class="btn-outline accent btn-sm btn-block">
+                        <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-refresh"/></svg>
+                        Cambiar o crear proyecto
                     </button>
                 </div>
 
-                <button id="btn-open-calibrate" class="btn-primary full-width">Importar / Calibrar Mapa</button>
-                <button id="btn-open-offline-dl" class="btn-outline full-width" style="margin-top: 8px; border-color: #3498db; color: #3498db; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 0.82rem;">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    📥 Descargar Mapa Base Offline (Satélite)
+                <button id="btn-open-calibrate" class="btn-primary btn-block mt-12">
+                    <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-upload"/></svg>
+                    Importar o calibrar plano
                 </button>
-                <ul class="item-list" id="list-maps">
-                    <!-- Dynamic map items -->
-                    <li class="list-item">
-                        <div class="item-icon map-icon"></div>
-                        <div class="item-details">
-                            <h3 class="item-title">Mapa Base (Online)</h3>
-                            <p class="item-meta">OpenStreetMap</p>
-                        </div>
-                    </li>
-                </ul>
+                <button id="btn-open-offline-dl" class="btn-outline sky btn-block mt-8">
+                    <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-satellite"/></svg>
+                    Descargar satélite offline
+                </button>
+
+                <div class="section-title">Capas cargadas</div>
+                <ul class="item-list" id="list-maps"></ul>
             </div>
         </aside>
 
-        <aside id="panel-tracks" class="side-panel">
+        <aside id="panel-tracks" class="side-panel" aria-label="Rutas">
             <header class="panel-header">
-                <h2>Mis Rutas</h2>
-                <button class="btn-close-panel"><svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                <div>
+                    <h2>Rutas</h2>
+                    <div class="panel-subtitle">Grabación de recorridos con GPS</div>
+                </div>
+                <button class="btn-close-panel" aria-label="Cerrar panel"><svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-x"/></svg></button>
             </header>
             <div class="panel-content">
-                <button class="btn-success full-width" id="btn-record-track">Iniciar Grabación</button>
-                <ul class="item-list" id="list-tracks">
-                    <!-- Dynamic track items -->
-                </ul>
+                <button class="btn-success btn-block btn-lg" id="btn-record-track">
+                    <svg stroke="currentColor" stroke-width="2" fill="currentColor"><use href="#i-record"/></svg>
+                    <span>Iniciar grabación</span>
+                </button>
+                <div class="section-title">Rutas guardadas</div>
+                <ul class="item-list" id="list-tracks"></ul>
             </div>
         </aside>
 
-        <aside id="panel-placemarks" class="side-panel">
+        <aside id="panel-placemarks" class="side-panel" aria-label="Marcadores">
             <header class="panel-header">
-                <h2>Mis Marcadores</h2>
-                <button class="btn-close-panel"><svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                <div>
+                    <h2>Marcadores</h2>
+                    <div class="panel-subtitle">Puntos, fotos y censo de uso del agua</div>
+                </div>
+                <button class="btn-close-panel" aria-label="Cerrar panel"><svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-x"/></svg></button>
             </header>
             <div class="panel-content">
-                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px;">
-                    <div style="font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        📁 Proyecto: <strong id="panel-placemarks-project-name" style="color: #34d399;">Proyecto General</strong>
+                <div class="card row-between">
+                    <div class="text-xs text-muted truncate">
+                        Proyecto: <strong id="panel-placemarks-project-name" class="text-accent">Proyecto General</strong>
                     </div>
-                    <button id="btn-panel-pm-switch-project" type="button" style="background: none; border: none; color: #38bdf8; font-size: 11px; font-weight: 700; cursor: pointer; padding: 2px 6px; white-space: nowrap;">Cambiar</button>
+                    <button id="btn-panel-pm-switch-project" type="button" class="btn-ghost sky btn-sm">Cambiar</button>
                 </div>
 
-                <button id="btn-export-all-main" class="btn-export-unified full-width" style="padding: 12px 8px; margin-bottom: 12px; font-size: 12.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; cursor: pointer;">
-                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    <span>📥 Exportar Todo (KMZ + Word + Excel)</span>
+                <button id="btn-export-all-main" class="btn-export-unified btn-block mt-12">
+                    <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-package"/></svg>
+                    <span>Exportar todo (KMZ + Word + Excel)</span>
                 </button>
-                <ul class="item-list" id="list-placemarks">
-                    <!-- Dynamic placemark items -->
-                </ul>
+
+                <div class="section-title">Marcadores del proyecto</div>
+                <ul class="item-list" id="list-placemarks"></ul>
             </div>
         </aside>
 
-        <aside id="panel-settings" class="side-panel">
+        <aside id="panel-settings" class="side-panel" aria-label="Ajustes">
             <header class="panel-header">
-                <h2>Ajustes</h2>
-                <button class="btn-close-panel"><svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                <div>
+                    <h2>Ajustes</h2>
+                    <div class="panel-subtitle">CampoMaps <span id="app-version-label" class="mono">v23</span></div>
+                </div>
+                <button class="btn-close-panel" aria-label="Cerrar panel"><svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-x"/></svg></button>
             </header>
             <div class="panel-content">
                 <div class="setting-group">
-                    <h3>Apariencia</h3>
+                    <div class="section-title">Apariencia</div>
                     <div class="setting-item">
-                        <span>Modo Claro</span>
+                        <span>Modo claro<small class="setting-help">Mejor legibilidad a pleno sol</small></span>
                         <label class="switch">
                             <input type="checkbox" id="toggle-light-mode">
                             <span class="slider"></span>
                         </label>
                     </div>
                 </div>
+
                 <div class="setting-group">
-                    <h3>Mapas Offline y GeoPDF</h3>
+                    <div class="section-title">Mapas offline y GeoPDF</div>
                     <div class="setting-item">
-                        <span>Descargar 2 km Satélite al Importar GeoPDF</span>
+                        <span>Descargar 2 km de satélite al importar un GeoPDF<small class="setting-help">Pregunta antes de descargar si está desactivado</small></span>
                         <label class="switch">
                             <input type="checkbox" id="toggle-auto-dl-geopdf">
                             <span class="slider"></span>
                         </label>
                     </div>
                 </div>
+
                 <div class="setting-group">
-                    <h3>GPS</h3>
+                    <div class="section-title">GPS</div>
                     <div class="setting-item">
-                        <span>Frecuencia de Actualización</span>
+                        <span>Frecuencia de actualización</span>
                         <select id="select-gps-freq" class="custom-select">
-                            <option value="1000">1 Segundo</option>
-                            <option value="5000">5 Segundos</option>
-                            <option value="10000">10 Segundos</option>
+                            <option value="1000">1 segundo</option>
+                            <option value="5000">5 segundos</option>
+                            <option value="10000">10 segundos</option>
                         </select>
                     </div>
                 </div>
+
                 <div class="setting-group">
-                    <h3>Cámara y Fotos de Campo</h3>
+                    <div class="section-title">Cámara y fotos</div>
                     <div class="setting-item">
-                        <span>Estampar Datos en Fotos</span>
+                        <span>Estampar datos en las fotos<small class="setting-help">Proyecto, fecha, MAGNA y precisión</small></span>
                         <label class="switch">
                             <input type="checkbox" id="toggle-stamp-photos" checked>
                             <span class="slider"></span>
                         </label>
                     </div>
-                    <div style="margin-top: 10px; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border: 1px solid var(--border-color);">
-                        <label for="input-project-name" style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Proyecto Actual para Fotos y Entregables</label>
-                        <input type="text" id="input-project-name" class="form-control" placeholder="Ej: Proyecto Infraestructura Meta" value="CampoMaps" readonly style="opacity: 0.9; cursor: pointer;">
-                        <button type="button" id="btn-settings-open-projects" class="btn-secondary full-width" style="margin-top: 8px; font-size: 12px; padding: 8px; font-weight: 700; border-color: #10b981; color: #34d399; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                            <span>📁</span> Abrir Gestor de Proyectos
+                    <div class="card mt-8">
+                        <label for="input-project-name">Proyecto actual para fotos y entregables</label>
+                        <input type="text" id="input-project-name" class="form-control mt-8" placeholder="Ej: Proyecto Infraestructura Meta" value="CampoMaps" readonly>
+                        <button type="button" id="btn-settings-open-projects" class="btn-outline accent btn-sm btn-block mt-8">
+                            <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-folder"/></svg>
+                            Abrir gestor de proyectos
                         </button>
                     </div>
                 </div>
-                <div class="setting-group">
-                    <h3>Exportación y Entregables</h3>
-                    <button id="btn-settings-export-all" class="btn-export-unified full-width" style="padding: 12px; margin-bottom: 12px; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; cursor: pointer;">
-                        <span>📥</span> Exportar Todo (KMZ + Word + Excel)
-                    </button>
 
-                    <button id="btn-clear-all-data" class="btn-danger full-width mt-10">Borrar Todos los Datos Locales</button>
+                <div class="setting-group">
+                    <div class="section-title">Exportación y datos</div>
+                    <button id="btn-settings-export-all" class="btn-export-unified btn-block">
+                        <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-package"/></svg>
+                        Exportar todo (KMZ + Word + Excel)
+                    </button>
+                    <button id="btn-clear-all-data" class="btn-outline danger btn-block mt-12">
+                        <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-trash"/></svg>
+                        Borrar todos los datos locales
+                    </button>
                 </div>
             </div>
         </aside>
 
-        <!-- Modals -->
-        
-        <!-- Modal: Projects Manager -->
-        <div id="modal-projects" class="modal hidden">
-            <div class="modal-content" style="max-width: 420px;">
+        <!-- Modal: Gestor de proyectos -->
+        <div id="modal-projects" class="modal hidden" role="dialog" aria-labelledby="modal-projects-title">
+            <div class="modal-content">
                 <header class="modal-header">
-                    <h2>Gestor de Proyectos</h2>
-                    <button class="btn-close-modal"><svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                    <h2 id="modal-projects-title">Gestor de proyectos</h2>
+                    <button class="btn-close-modal" aria-label="Cerrar"><svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-x"/></svg></button>
                 </header>
                 <div class="modal-body">
-                    <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;">
-                        Organiza tus planos GeoPDF, fotos y puntos de control por obras o contratos independientes.
-                    </p>
+                    <p class="text-xs mb-12">Organiza planos GeoPDF, fotos y puntos de control por obra o contrato.</p>
 
-                    <button id="btn-show-project-form" class="btn-success full-width" style="margin-bottom: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                        <span>➕</span> Crear Nuevo Proyecto
+                    <button id="btn-show-project-form" class="btn-success btn-block mb-12">
+                        <svg stroke="currentColor" stroke-width="2.2" fill="none"><use href="#i-plus"/></svg>
+                        Crear nuevo proyecto
                     </button>
 
-                    <div id="project-form-box" class="hidden" style="background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; margin-bottom: 14px; border: 1px solid var(--border-color);">
-                        <h4 style="margin: 0 0 10px 0; color: var(--accent-primary); font-size: 13px;">Nuevo Proyecto</h4>
-                        <label for="new-project-name" style="font-size: 11px;">Nombre del Proyecto / Obra</label>
-                        <input type="text" id="new-project-name" class="form-control" placeholder="Ej: Gasoducto Casanare - Tramo 1">
-                        
-                        <label for="new-project-desc" style="font-size: 11px; margin-top: 8px;">Descripción / Notas</label>
-                        <textarea id="new-project-desc" class="form-control" rows="2" placeholder="Notas de obra, cliente o contrato..."></textarea>
-
-                        <div style="display: flex; gap: 8px; margin-top: 10px;">
-                            <button type="button" id="btn-cancel-project-form" class="btn-secondary" style="flex: 1;">Cancelar</button>
-                            <button type="button" id="btn-save-new-project" class="btn-primary" style="flex: 1;">Guardar</button>
+                    <div id="project-form-box" class="card hidden mb-12">
+                        <div class="card-title">Nuevo proyecto</div>
+                        <div class="form-group">
+                            <label for="new-project-name">Nombre del proyecto u obra</label>
+                            <input type="text" id="new-project-name" class="form-control" placeholder="Ej: Gasoducto Casanare - Tramo 1">
+                            <label for="new-project-desc">Descripción o notas</label>
+                            <textarea id="new-project-desc" class="form-control" rows="2" placeholder="Notas de obra, cliente o contrato..."></textarea>
+                        </div>
+                        <div class="btn-group mt-12">
+                            <button type="button" id="btn-cancel-project-form" class="btn-secondary">Cancelar</button>
+                            <button type="button" id="btn-save-new-project" class="btn-primary">Guardar</button>
                         </div>
                     </div>
 
-                    <h4 style="margin: 8px 0; font-size: 12px; color: var(--text-secondary);">Tus Proyectos:</h4>
-                    <div id="list-projects-container" style="max-height: 240px; overflow-y: auto;">
-                        <ul id="list-projects" class="item-list">
-                            <!-- Dynamic projects -->
-                        </ul>
+                    <div class="section-title">Tus proyectos</div>
+                    <div id="list-projects-container">
+                        <ul id="list-projects" class="item-list"></ul>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Modal: Add/Edit Placemark -->
-        <div id="modal-placemark" class="modal hidden">
+        <!-- Modal: Guardar marcador -->
+        <div id="modal-placemark" class="modal hidden" data-no-dismiss role="dialog" aria-labelledby="modal-placemark-title">
             <div class="modal-content">
                 <header class="modal-header">
-                    <h2>Guardar Marcador</h2>
-                    <button class="btn-close-modal"><svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                    <h2 id="modal-placemark-title">Guardar marcador</h2>
+                    <button class="btn-close-modal" aria-label="Cerrar"><svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-x"/></svg></button>
                 </header>
                 <div class="modal-body">
-                    <div class="form-group" style="padding-bottom: 30px;">
-                        <!-- Live Coordinates & Precision Badge -->
-                    <div id="pm-coord-status-box" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px;">
-                        <div>
-                            <div id="pm-status-magna" style="font-size: 11px; font-weight: 700; color: var(--accent-primary);">MAGNA: Calculando...</div>
-                            <div id="pm-status-acc" style="font-size: 10px; color: var(--text-secondary);">Precisión: --</div>
+                    <div class="form-group">
+                        <div id="pm-coord-status-box" class="coord-status">
+                            <div class="truncate">
+                                <div id="pm-status-magna" class="coord-main truncate">Calculando coordenadas...</div>
+                                <div id="pm-status-acc" class="coord-sub">Precisión: --</div>
+                            </div>
+                            <button type="button" id="btn-average-gps" class="btn-outline accent btn-sm" title="Promediar varias lecturas GPS para estabilizar la coordenada">
+                                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-target"/></svg>
+                                Promediar
+                            </button>
                         </div>
-                        <button type="button" id="btn-average-gps" class="btn-secondary" style="font-size: 10px; padding: 5px 8px; border-color: var(--accent-primary); color: var(--accent-primary); font-weight: 600; white-space: nowrap;">
-                            🎯 Promediar GPS
-                        </button>
-                    </div>
 
-                    <label for="pm-name">Nombre</label>
-                    <input type="text" id="pm-name" class="form-control" placeholder="Ej. Punto de muestreo 1">
-                    
-                    <label for="pm-desc">Descripción</label>
-                    <textarea id="pm-desc" class="form-control" rows="3" placeholder="Notas adicionales..."></textarea>
-                    
-                    <label>Icono</label>
-                    <div class="icon-selector">
-                        <div class="icon-option selected" data-icon="default">📍</div>
-                        <div class="icon-option" data-icon="tree">🌳</div>
-                        <div class="icon-option" data-icon="water">💧</div>
-                        <div class="icon-option" data-icon="warning">⚠️</div>
-                        <div class="icon-option" data-icon="camera">📷</div>
-                    </div>
-                    
-                    <input type="file" id="placemark-photo-native" accept="image/*" capture="environment" style="display: none;">
-                    <input type="file" id="placemark-photo-input" accept="image/*" multiple style="display: none;">
-                    <div style="display: grid; grid-template-columns: 1.25fr 1.05fr 0.8fr; gap: 6px; margin-top: 10px;">
-                        <button type="button" id="btn-open-camera" class="btn-primary" style="display: flex; align-items: center; justify-content: center; gap: 4px; font-weight: 700; background: var(--accent-primary); color: #111; padding: 10px 4px; font-size: 11px; border-radius: 8px; border: none; cursor: pointer;">
-                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                            <span>📸 En Vivo (Ráfaga)</span>
-                        </button>
-                        <button type="button" id="btn-native-camera" class="btn-secondary" style="display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; padding: 10px 4px; border-radius: 8px; cursor: pointer; border: 1px solid #3498db; color: #3498db; font-weight: 700;">
-                            <span>📷 Cámara del Teléfono</span>
-                        </button>
-                        <button type="button" id="btn-pick-gallery" class="btn-outline" style="display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; padding: 10px 4px; border-radius: 8px; cursor: pointer;">
-                            <span>📁 Galería</span>
-                        </button>
-                    </div>
+                        <label for="pm-name">Nombre</label>
+                        <input type="text" id="pm-name" class="form-control" placeholder="Ej. Punto de muestreo 1">
 
-                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 8px; background: rgba(46, 204, 113, 0.1); border-radius: 6px; border: 1px solid rgba(46, 204, 113, 0.25);">
-                        <input type="checkbox" id="pm-stamp-toggle" checked style="accent-color: var(--accent-primary); width: 16px; height: 16px; cursor: pointer;">
-                        <label for="pm-stamp-toggle" style="font-size: 11px; color: var(--text-secondary); cursor: pointer; margin: 0; line-height: 1.3;">
-                            🏷️ Estampar coordenadas MAGNA, fecha y proyecto en las fotos
-                        </label>
-                    </div>
-                    
-                    <!-- Multi-photo thumbnails gallery -->
-                    <div id="placemark-photos-container" class="hidden mt-10" style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 10px; border: 1px solid var(--border-color);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <span style="font-size: 12px; font-weight: 600; color: var(--accent-primary);" id="photos-count-label">Fotos adjuntas (0)</span>
-                            <button type="button" id="btn-clear-all-photos" style="background: none; border: none; color: #e74c3c; font-size: 11px; cursor: pointer; text-decoration: underline;">Borrar todas</button>
+                        <label for="pm-desc">Descripción</label>
+                        <textarea id="pm-desc" class="form-control" rows="3" placeholder="Notas adicionales..."></textarea>
+
+                        <label>Icono</label>
+                        <div class="icon-selector" role="radiogroup" aria-label="Icono del marcador">
+                            <div class="icon-option selected" data-icon="default" role="radio" aria-checked="true">📍</div>
+                            <div class="icon-option" data-icon="tree" role="radio" aria-checked="false">🌳</div>
+                            <div class="icon-option" data-icon="water" role="radio" aria-checked="false">💧</div>
+                            <div class="icon-option" data-icon="warning" role="radio" aria-checked="false">⚠️</div>
+                            <div class="icon-option" data-icon="camera" role="radio" aria-checked="false">📷</div>
                         </div>
-                        <div id="pm-photos-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; max-height: 180px; overflow-y: auto;">
-                            <!-- Dynamic thumbnails -->
-                        </div>
-                    </div>
 
-                    <!-- Collapsible Activity: Censo Uso y Usuarios -->
-                    <div style="margin-top: 14px; border: 2px solid #3498db; border-radius: 8px; overflow: hidden; background: rgba(52, 152, 219, 0.05); box-shadow: 0 2px 8px rgba(0,0,0,0.25);">
-                        <div id="toggle-censo-header" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; cursor: pointer; background: rgba(52, 152, 219, 0.22); user-select: none;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <input type="checkbox" id="check-enable-censo" style="accent-color: #3498db; width: 20px; height: 20px; pointer-events: none;">
-                                <div>
-                                    <div style="font-size: 13px; font-weight: 800; color: #3498db; letter-spacing: 0.3px;">
-                                        📋 Actividad: Uso y Usuarios del Agua
-                                    </div>
-                                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">
-                                        Toca aquí para activar y llenar el formulario
+                        <label>Fotos</label>
+                        <input type="file" id="placemark-photo-native" accept="image/*" capture="environment" class="hidden">
+                        <input type="file" id="placemark-photo-input" accept="image/*" multiple class="hidden">
+                        <div class="photo-actions">
+                            <button type="button" id="btn-open-camera" class="btn-primary">
+                                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-camera"/></svg>
+                                <span id="btn-photo-text">Ráfaga en vivo</span>
+                            </button>
+                            <button type="button" id="btn-native-camera" class="btn-secondary">
+                                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-camera"/></svg>
+                                <span>Cámara</span>
+                            </button>
+                            <button type="button" id="btn-pick-gallery" class="btn-outline">
+                                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-image"/></svg>
+                                <span>Galería</span>
+                            </button>
+                        </div>
+
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="pm-stamp-toggle" checked>
+                            <label for="pm-stamp-toggle">Estampar coordenadas MAGNA, fecha y proyecto en las fotos</label>
+                        </div>
+
+                        <div id="placemark-photos-container" class="photos-box hidden">
+                            <div class="photos-box-header">
+                                <span class="count" id="photos-count-label">Fotos adjuntas (0)</span>
+                                <button type="button" id="btn-clear-all-photos" class="btn-ghost danger btn-xs">Borrar todas</button>
+                            </div>
+                            <div id="pm-photos-grid" class="photo-grid"></div>
+                        </div>
+
+                        <!-- Actividad: censo de uso y usuarios del agua -->
+                        <div class="collapsible">
+                            <div id="toggle-censo-header" class="collapsible-header">
+                                <div class="collapsible-lead">
+                                    <input type="checkbox" id="check-enable-censo" tabindex="-1">
+                                    <div>
+                                        <div class="collapsible-title">Actividad: uso y usuarios del agua</div>
+                                        <div class="collapsible-hint">Toca para activar y llenar el formulario</div>
                                     </div>
                                 </div>
-                            </div>
-                            <span id="censo-arrow" style="font-size: 11px; color: #ffffff; font-weight: bold; background: #2980b9; padding: 5px 10px; border-radius: 12px; white-space: nowrap;">▼ Activar</span>
-                        </div>
-
-                        <div id="censo-form-body" class="hidden" style="padding: 12px; background: rgba(0,0,0,0.25);">
-                            <div>
-                                <label for="censo-id-campo" style="font-size: 11px; color: var(--text-secondary);">ID Campo / Punto</label>
-                                <input type="text" id="censo-id-campo" class="form-control" placeholder="Ej: P-01">
+                                <span id="censo-arrow" class="collapsible-toggle">Activar</span>
                             </div>
 
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
-                                <div>
-                                    <label for="censo-municipio" style="font-size: 11px; color: var(--text-secondary);">Municipio</label>
-                                    <input type="text" id="censo-municipio" class="form-control" placeholder="Ej: Aguazul">
+                            <div id="censo-form-body" class="collapsible-body hidden">
+                                <div class="form-group">
+                                    <label for="censo-id-campo">ID campo / punto</label>
+                                    <input type="text" id="censo-id-campo" class="form-control" placeholder="Ej: P-01">
                                 </div>
-                                <div>
-                                    <label for="censo-vereda" style="font-size: 11px; color: var(--text-secondary);">Vereda</label>
-                                    <input type="text" id="censo-vereda" class="form-control" placeholder="Ej: San José">
+
+                                <div class="grid-2 mt-8">
+                                    <div class="form-group">
+                                        <label for="censo-municipio">Municipio</label>
+                                        <input type="text" id="censo-municipio" class="form-control" placeholder="Ej: Aguazul">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="censo-vereda">Vereda</label>
+                                        <input type="text" id="censo-vereda" class="form-control" placeholder="Ej: San José">
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; margin-top: 8px;">
-                                <div>
-                                    <label for="censo-predio" style="font-size: 11px; color: var(--text-secondary);">Nombre del Predio</label>
-                                    <input type="text" id="censo-predio" class="form-control" placeholder="Ej: Finca La Esperanza">
+                                <div class="grid-2-wide mt-8">
+                                    <div class="form-group">
+                                        <label for="censo-predio">Nombre del predio</label>
+                                        <input type="text" id="censo-predio" class="form-control" placeholder="Ej: Finca La Esperanza">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="censo-habitantes">N° personas</label>
+                                        <input type="number" id="censo-habitantes" class="form-control" placeholder="Ej: 5" min="0" inputmode="numeric">
+                                    </div>
                                 </div>
-                                <div>
-                                    <label for="censo-habitantes" style="font-size: 11px; color: var(--text-secondary);">N° Personas</label>
-                                    <input type="number" id="censo-habitantes" class="form-control" placeholder="Ej: 5" min="0">
+
+                                <div class="form-group mt-8">
+                                    <label for="censo-cota">Cota / altitud (msnm)</label>
+                                    <input type="number" id="censo-cota" class="form-control" placeholder="Ej: 345" inputmode="numeric">
                                 </div>
-                            </div>
 
-                            <div style="margin-top: 8px;">
-                                <label for="censo-cota" style="font-size: 11px; color: var(--text-secondary);">Cota / Altitud (msnm)</label>
-                                <input type="number" id="censo-cota" class="form-control" placeholder="Ej: 345">
-                            </div>
-
-                            <!-- Fuentes de Agua Multi-Seleccion en Acordeones -->
-                            <div style="margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
-                                <h4 style="margin: 0 0 6px 0; font-size: 11px; color: #3498db; text-transform: uppercase; letter-spacing: 0.5px;">💧 Fuentes del Agua (Toca para desplegar y marcar)</h4>
-
-                                <details class="censo-details" open>
-                                    <summary>
-                                        <span>1. Primaria Doméstica</span>
-                                        <span class="censo-badge" id="badge-fuente-primaria">0 sel.</span>
-                                    </summary>
-                                    <div id="chips-fuente-primaria" class="censo-chips-container"></div>
-                                </details>
-
-                                <details class="censo-details">
-                                    <summary>
-                                        <span>2. Secundaria Doméstica</span>
-                                        <span class="censo-badge" id="badge-fuente-secundaria">0 sel.</span>
-                                    </summary>
-                                    <div id="chips-fuente-secundaria" class="censo-chips-container"></div>
-                                </details>
-
-                                <details class="censo-details">
-                                    <summary>
-                                        <span>3. Uso Pecuario</span>
-                                        <span class="censo-badge" id="badge-fuente-pecuario">0 sel.</span>
-                                    </summary>
-                                    <div id="chips-fuente-pecuario" class="censo-chips-container"></div>
-                                </details>
-
-                                <details class="censo-details">
-                                    <summary>
-                                        <span>4. Uso Agrícola</span>
-                                        <span class="censo-badge" id="badge-fuente-agricola">0 sel.</span>
-                                    </summary>
-                                    <div id="chips-fuente-agricola" class="censo-chips-container"></div>
-                                </details>
-
-                                <div style="margin-top: 8px;">
-                                    <label for="censo-otros-usos" style="font-size: 11px; color: var(--text-secondary);">5. Otros Usos</label>
-                                    <input type="text" id="censo-otros-usos" class="form-control" placeholder="Ej: Piscícola, minero, recreativo...">
+                                <div class="subsection">
+                                    <h4>Fuentes del agua</h4>
+                                    <details class="censo-details" open>
+                                        <summary><span>1. Primaria doméstica</span><span class="censo-badge" id="badge-fuente-primaria">0 sel.</span></summary>
+                                        <div id="chips-fuente-primaria" class="censo-chips-container"></div>
+                                    </details>
+                                    <details class="censo-details">
+                                        <summary><span>2. Secundaria doméstica</span><span class="censo-badge" id="badge-fuente-secundaria">0 sel.</span></summary>
+                                        <div id="chips-fuente-secundaria" class="censo-chips-container"></div>
+                                    </details>
+                                    <details class="censo-details">
+                                        <summary><span>3. Uso pecuario</span><span class="censo-badge" id="badge-fuente-pecuario">0 sel.</span></summary>
+                                        <div id="chips-fuente-pecuario" class="censo-chips-container"></div>
+                                    </details>
+                                    <details class="censo-details">
+                                        <summary><span>4. Uso agrícola</span><span class="censo-badge" id="badge-fuente-agricola">0 sel.</span></summary>
+                                        <div id="chips-fuente-agricola" class="censo-chips-container"></div>
+                                    </details>
+                                    <div class="form-group mt-8">
+                                        <label for="censo-otros-usos">5. Otros usos</label>
+                                        <input type="text" id="censo-otros-usos" class="form-control" placeholder="Ej: piscícola, minero, recreativo...">
+                                    </div>
                                 </div>
-                            </div>
 
-                            <!-- Residuos Multi-Seleccion -->
-                            <div style="margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
-                                <h4 style="margin: 0 0 6px 0; font-size: 11px; color: #e67e22; text-transform: uppercase; letter-spacing: 0.5px;">♻️ Manejo de Residuos (Toca para desplegar)</h4>
-
-                                <details class="censo-details">
-                                    <summary>
-                                        <span>Residuos Líquidos</span>
-                                        <span class="censo-badge" id="badge-residuo-liquido">0 sel.</span>
-                                    </summary>
-                                    <div id="chips-residuo-liquido" class="censo-chips-container"></div>
-                                </details>
-
-                                <details class="censo-details">
-                                    <summary>
-                                        <span>Residuos Sólidos</span>
-                                        <span class="censo-badge" id="badge-residuo-solido">0 sel.</span>
-                                    </summary>
-                                    <div id="chips-residuo-solido" class="censo-chips-container"></div>
-                                </details>
+                                <div class="subsection">
+                                    <h4 class="warn">Manejo de residuos</h4>
+                                    <details class="censo-details">
+                                        <summary><span>Residuos líquidos</span><span class="censo-badge" id="badge-residuo-liquido">0 sel.</span></summary>
+                                        <div id="chips-residuo-liquido" class="censo-chips-container"></div>
+                                    </details>
+                                    <details class="censo-details">
+                                        <summary><span>Residuos sólidos</span><span class="censo-badge" id="badge-residuo-solido">0 sel.</span></summary>
+                                        <div id="chips-residuo-solido" class="censo-chips-container"></div>
+                                    </details>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
                 <footer class="modal-footer">
                     <button class="btn-secondary btn-cancel-modal">Cancelar</button>
-                    <button class="btn-primary" id="btn-save-placemark">Guardar</button>
+                    <button class="btn-primary" id="btn-save-placemark">
+                        <svg stroke="currentColor" stroke-width="2.5" fill="none"><use href="#i-check"/></svg>
+                        Guardar marcador
+                    </button>
                 </footer>
             </div>
         </div>
 
-        <!-- Modal: Track Statistics -->
-        <div id="modal-track-stats" class="modal hidden">
+        <!-- Modal: Estadísticas de ruta -->
+        <div id="modal-track-stats" class="modal hidden" role="dialog" aria-labelledby="modal-stats-title">
             <div class="modal-content">
                 <header class="modal-header">
-                    <h2>Estadísticas de Ruta</h2>
-                    <button class="btn-close-modal"><svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                    <h2 id="modal-stats-title">Estadísticas de ruta</h2>
+                    <button class="btn-close-modal" aria-label="Cerrar"><svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-x"/></svg></button>
                 </header>
                 <div class="modal-body stats-grid">
                     <div class="stat-box">
@@ -552,164 +574,146 @@
                         <span class="stat-value" id="stat-time">00:00:00</span>
                     </div>
                     <div class="stat-box">
-                        <span class="stat-label">Vel. Promedio</span>
+                        <span class="stat-label">Vel. promedio</span>
                         <span class="stat-value" id="stat-avg-speed">0 km/h</span>
                     </div>
                     <div class="stat-box">
-                        <span class="stat-label">Vel. Máxima</span>
+                        <span class="stat-label">Vel. máxima</span>
                         <span class="stat-value" id="stat-max-speed">0 km/h</span>
                     </div>
                     <div class="stat-box full-width-stat">
-                        <span class="stat-label">Desnivel Acumulado</span>
+                        <span class="stat-label">Desnivel acumulado</span>
                         <span class="stat-value" id="stat-elevation">0 m</span>
                     </div>
                 </div>
                 <footer class="modal-footer">
-                    <button class="btn-primary full-width btn-close-modal">Cerrar</button>
+                    <button class="btn-primary btn-block btn-close-modal">Cerrar</button>
                 </footer>
             </div>
         </div>
 
-        <!-- Modal: Map Calibration -->
-        <div id="modal-calibrate" class="modal hidden">
+        <!-- Modal: Importar / calibrar plano -->
+        <div id="modal-calibrate" class="modal hidden" data-no-dismiss role="dialog" aria-labelledby="modal-cal-title">
             <div class="modal-content large">
                 <header class="modal-header">
-                    <h2>Importar / Calibrar Mapa</h2>
-                    <button class="btn-close-modal"><svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                    <h2 id="modal-cal-title">Importar o calibrar plano</h2>
+                    <button class="btn-close-modal" aria-label="Cerrar"><svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-x"/></svg></button>
                 </header>
                 <div class="modal-body">
                     <div class="calibration-steps">
-                        <p><strong>1. Selecciona tu Mapa (PDF georreferenciado o Imagen JPG/PNG)</strong></p>
+                        <div class="step-label"><span class="step-num">1</span> Selecciona el plano (PDF georreferenciado o imagen JPG/PNG)</div>
                         <input type="file" id="map-image-upload" accept="application/pdf,image/*" class="form-control">
-                        <div id="pdf-status" style="font-size: 0.85rem; color: var(--accent-primary); margin-top: 6px; display: none;"></div>
-                        
-                        <!-- Quick test card with user's GeoPDF -->
-                        <div style="margin: 10px 0; padding: 10px; background: rgba(52, 152, 219, 0.1); border: 1px dashed #3498db; border-radius: 8px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between;">
-                                <div>
-                                    <div style="font-size: 0.85rem; font-weight: 700; color: #3498db;">⚡ Probar tu GeoPDF Oficial</div>
-                                    <div style="font-size: 0.72rem; color: var(--text-secondary);">Infraestructura_conImagen.pdf (29 MB - Casanare/Meta)</div>
-                                </div>
-                                <button type="button" id="btn-load-sample-geopdf" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 10px; border-color: #3498db; color: #3498db; font-weight: 600;">
-                                    Probar Ahora
-                                </button>
+                        <div id="pdf-status" class="status-line hidden"></div>
+
+                        <div id="geopdf-detected-card" class="card card-accent hidden mt-12">
+                            <div class="card-title">GeoPDF georreferenciado detectado</div>
+                            <div class="card-text mt-8" id="geopdf-info">
+                                Este archivo incluye coordenadas oficiales embebidas. No necesitas calibrarlo manualmente.
                             </div>
-                        </div>
-                        
-                        <!-- GeoPDF Auto-Detection Banner -->
-                        <div id="geopdf-detected-card" class="hidden" style="background: rgba(46, 204, 113, 0.15); border: 1px solid var(--accent-primary); border-radius: 8px; padding: 14px; margin: 12px 0;">
-                            <div style="font-weight: 700; color: var(--accent-primary); font-size: 1rem; margin-bottom: 4px;">🎉 ¡Mapa GeoPDF Georreferenciado Detectado!</div>
-                            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 10px;" id="geopdf-info">
-                                Este archivo ya incluye coordenadas geográficas oficiales embebidas. No necesitas calibrarlo manualmente.
-                            </div>
-                            <button type="button" id="btn-load-geopdf-direct" class="btn-primary full-width" style="font-weight: bold; padding: 12px; font-size: 1rem; background-color: var(--accent-primary);">
-                                🚀 Cargar Mapa Georreferenciado Directamente
+                            <button type="button" id="btn-load-geopdf-direct" class="btn-primary btn-block btn-lg mt-12">
+                                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-map"/></svg>
+                                Cargar plano georreferenciado
                             </button>
                         </div>
 
                         <div id="manual-cal-section">
-                            <p class="mt-10"><strong>2. Georreferenciación / Puntos de Control</strong></p>
-                            <small style="color: var(--text-secondary); display: block; margin-bottom: 8px;">
-                                Sistema oficial: <strong>MAGNA-SIRGAS Origen Nacional (EPSG:9377)</strong>
-                            </small>
-                            <div class="calibration-preview-container">
+                            <div class="step-label"><span class="step-num">2</span> Georreferenciación con puntos de control</div>
+                            <small class="text-muted">Sistema oficial: <strong>MAGNA-SIRGAS Origen Nacional (EPSG:9377)</strong></small>
+                            <div class="calibration-preview-container empty" id="calibration-preview-container">
                                 <div class="calibration-grid-overlay"></div>
-                                <img id="calibration-preview" src="" alt="Vista previa del mapa" style="display:none;">
+                                <img id="calibration-preview" src="" alt="Vista previa del plano" class="hidden">
                                 <div id="calibration-points"></div>
                             </div>
-                            
-                            <!-- Mode Selector: MAGNA vs WGS84 -->
-                            <div style="display: flex; gap: 8px; margin: 10px 0 6px 0;">
-                                <button type="button" id="btn-cal-mode-magna" class="btn-secondary active" style="flex:1; font-size:11px; padding:6px; font-weight:600; border-color:var(--accent-primary);">MAGNA Origen Nal. (m)</button>
-                                <button type="button" id="btn-cal-mode-geo" class="btn-secondary" style="flex:1; font-size:11px; padding:6px;">WGS84 (Lat / Lng)</button>
+
+                            <div class="btn-group mt-8">
+                                <button type="button" id="btn-cal-mode-magna" class="btn-secondary btn-sm active">MAGNA Origen Nal. (m)</button>
+                                <button type="button" id="btn-cal-mode-geo" class="btn-secondary btn-sm">WGS84 (Lat / Lng)</button>
                             </div>
 
-                            <div class="coord-inputs mt-10" id="inputs-magna">
-                                <label>Norte (m)</label>
-                                <input type="number" step="any" id="cal-norte" class="form-control" placeholder="Ej: 2066190">
-                                <label>Este (m)</label>
-                                <input type="number" step="any" id="cal-este" class="form-control" placeholder="Ej: 4991660">
-                                <button type="button" id="btn-add-cal-point" class="btn-primary full-width mt-10">Fijar Punto de Control</button>
+                            <div class="coord-inputs mt-12" id="inputs-magna">
+                                <label for="cal-norte">Norte (m)</label>
+                                <input type="number" step="any" id="cal-norte" class="form-control" placeholder="Ej: 2066190" inputmode="decimal">
+                                <label for="cal-este">Este (m)</label>
+                                <input type="number" step="any" id="cal-este" class="form-control" placeholder="Ej: 4991660" inputmode="decimal">
+                                <button type="button" id="btn-add-cal-point" class="btn-primary">Fijar punto de control</button>
                             </div>
 
-                            <div class="coord-inputs mt-10 hidden" id="inputs-geo">
-                                <label>Latitud</label>
-                                <input type="number" step="any" id="cal-lat" class="form-control" placeholder="Ej: 4.5981">
-                                <label>Longitud</label>
-                                <input type="number" step="any" id="cal-lng" class="form-control" placeholder="Ej: -74.0758">
-                                <button type="button" id="btn-add-cal-point-geo" class="btn-primary full-width mt-10">Fijar Punto de Control</button>
+                            <div class="coord-inputs mt-12 hidden" id="inputs-geo">
+                                <label for="cal-lat">Latitud</label>
+                                <input type="number" step="any" id="cal-lat" class="form-control" placeholder="Ej: 4.5981" inputmode="decimal">
+                                <label for="cal-lng">Longitud</label>
+                                <input type="number" step="any" id="cal-lng" class="form-control" placeholder="Ej: -74.0758" inputmode="decimal">
+                                <button type="button" id="btn-add-cal-point-geo" class="btn-primary">Fijar punto de control</button>
                             </div>
 
-                            <button type="button" id="btn-cal-fit-gps" class="btn-outline full-width mt-10" style="font-size:12px; border-color:var(--accent-primary); color:var(--accent-primary); font-weight:600;">
-                                📍 Posicionar plano centrado en mi ubicación GPS actual
+                            <button type="button" id="btn-cal-fit-gps" class="btn-outline accent btn-block mt-12">
+                                <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-locate"/></svg>
+                                Posicionar plano centrado en mi ubicación GPS
                             </button>
                         </div>
                     </div>
                 </div>
                 <footer class="modal-footer">
                     <button class="btn-secondary btn-cancel-modal">Cancelar</button>
-                    <button class="btn-primary" id="btn-finish-calibration">Generar Mapa Calibrado</button>
+                    <button class="btn-primary" id="btn-finish-calibration">Generar mapa calibrado</button>
                 </footer>
             </div>
         </div>
 
-        <!-- Fullscreen Continuous In-App Camera Viewfinder Modal -->
-        <div id="modal-camera" class="modal hidden" style="position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; background: #000; padding: 0; margin: 0; overflow: hidden;">
-            <div style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
-                <!-- Top HUD -->
-                <div style="position: absolute; top: calc(env(safe-area-inset-top, 16px) + 12px); left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: center; z-index: 100;">
-                    <div id="camera-heading-badge" style="background: rgba(0,0,0,0.65); color: #2ecc71; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; border: 1px solid #2ecc71; backdrop-filter: blur(6px); display: flex; align-items: center; gap: 6px;">
-                        <span>🧭</span> <span id="camera-heading-val">000° N</span>
+        <!-- Cámara continua en la app -->
+        <div id="modal-camera" class="modal hidden" role="dialog" aria-label="Cámara">
+            <div class="camera-stage">
+                <div class="camera-hud">
+                    <div id="camera-heading-badge" class="camera-chip accent mono">
+                        <svg width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><use href="#i-compass"/></svg>
+                        <span id="camera-heading-val">000° N</span>
                     </div>
-                    <button id="btn-close-camera" type="button" style="background: rgba(0,0,0,0.65); color: #fff; border: 1px solid rgba(255,255,255,0.4); border-radius: 50%; width: 44px; height: 44px; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px);">
-                        ✕
+                    <button id="btn-close-camera" type="button" aria-label="Cerrar cámara">
+                        <svg stroke="currentColor" stroke-width="2.2" fill="none"><use href="#i-x"/></svg>
                     </button>
                 </div>
 
-                <!-- Video Viewfinder Feed -->
-                <div style="width: 100%; height: 100%; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; background: #000;">
-                    <video id="camera-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;"></video>
-                    <!-- Professional 3x3 Rule-of-Thirds Grid Overlay -->
+                <div class="camera-viewport">
+                    <video id="camera-video" autoplay playsinline muted></video>
                     <div class="camera-grid-overlay">
                         <div class="grid-line grid-line-h1"></div>
                         <div class="grid-line grid-line-h2"></div>
                         <div class="grid-line grid-line-v1"></div>
                         <div class="grid-line grid-line-v2"></div>
                     </div>
-                    <div id="camera-flash" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.12s ease-out;"></div>
+                    <div id="camera-flash"></div>
                 </div>
 
-                <!-- Bottom Shutter & Action Bar -->
-                <div style="position: absolute; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; z-index: 9999999; padding-bottom: max(25px, calc(env(safe-area-inset-bottom, 20px) + 10px)); background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.45) 60%, transparent 100%); pointer-events: auto;">
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.85); font-weight: 600; margin-bottom: 10px; text-shadow: 0 1px 4px #000; pointer-events: none;">
-                        Toca el botón circular o la pantalla para tomar foto
-                    </div>
-                    <div style="width: 100%; display: flex; justify-content: space-around; align-items: center; padding: 0 20px;">
-                        <!-- Thumbnails / Count badge -->
-                        <div id="camera-photos-count" style="background: rgba(0,0,0,0.65); color: #fff; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(6px);">
-                            📷 <span id="camera-count-num">0</span> fotos
+                <div class="camera-bar">
+                    <div class="camera-hint">Toca el obturador o la pantalla para tomar la foto</div>
+                    <div class="camera-actions">
+                        <div id="camera-photos-count" class="camera-chip">
+                            <svg width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><use href="#i-camera"/></svg>
+                            <span id="camera-count-num">0</span> fotos
                         </div>
-
-                        <!-- Big White/Green Shutter Button -->
-                        <button id="btn-shutter" type="button" aria-label="Tomar fotografía" style="width: 78px; height: 78px; min-width: 78px; min-height: 78px; border-radius: 50%; background: #ffffff; border: 5px solid #2ecc71; box-shadow: 0 0 25px rgba(46,204,113,0.9); cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; padding: 0; touch-action: manipulation; -webkit-tap-highlight-color: transparent;">
-                            <div style="width: 60px; height: 60px; border-radius: 50%; background: #ffffff; border: 3px solid #222;"></div>
-                        </button>
-
-                        <!-- Done Button -->
-                        <button id="btn-camera-done" type="button" style="background: #2ecc71; color: #111; font-weight: 800; border: none; padding: 12px 20px; border-radius: 24px; font-size: 14px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.6);">
-                            Listo ✔
-                        </button>
+                        <button id="btn-shutter" type="button" aria-label="Tomar fotografía"><div></div></button>
+                        <button id="btn-camera-done" type="button">Listo ✔</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Toast Notifications -->
-        <div id="toast-container"></div>
-        
-        <!-- Loading Spinner -->
-        <div id="loading-overlay" class="hidden">
+        <!-- Visor de fotos -->
+        <div id="lightbox" class="lightbox hidden" role="dialog" aria-label="Foto ampliada">
+            <img id="lightbox-img" src="" alt="Foto ampliada">
+            <div id="lightbox-caption" class="lightbox-caption"></div>
+            <button id="lightbox-close" class="lightbox-close" type="button" aria-label="Cerrar foto">
+                <svg stroke="currentColor" stroke-width="2.2" fill="none"><use href="#i-x"/></svg>
+            </button>
+        </div>
+
+        <!-- Notificaciones -->
+        <div id="toast-container" aria-live="polite"></div>
+
+        <!-- Carga -->
+        <div id="loading-overlay" class="hidden" role="status">
             <div class="spinner"></div>
+            <div id="loading-text" class="loading-text">Procesando...</div>
         </div>
 
     </div>
@@ -717,18 +721,18 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- App JS Modules -->
-    <script type="module" src="js/app.js?v=22"></script>
-    
-    <!-- Service Worker Registration with auto-update -->
+    <!-- App -->
+    <script type="module" src="js/app.js?v=23"></script>
+
+    <!-- Service Worker -->
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js?v=22').then(registration => {
-                    registration.update();
-                    console.log('ServiceWorker registered with scope: ', registration.scope);
-                }, err => {
-                    console.log('ServiceWorker registration failed: ', err);
+            window.addEventListener('load', function () {
+                var v = window.CAMPOMAPS_VERSION || 'v23';
+                navigator.serviceWorker.register('./sw.js?v=' + v).then(function (registration) {
+                    registration.update().catch(function () {});
+                }).catch(function (err) {
+                    console.warn('ServiceWorker no registrado:', err);
                 });
             });
         }

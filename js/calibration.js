@@ -21,35 +21,49 @@ export class MapCalibrator {
         if (!window.pdfjsLib) {
             throw new Error("El motor PDF.js no está disponible.");
         }
-        
+
         const arrayBuffer = await file.arrayBuffer();
-        
+
         // Extract embedded geospatial metadata (GeoPDF / ISO 32000-1 / TerraGo / OGC)
         const geoMetadata = MapCalibrator.extractGeoPdfMetadata(arrayBuffer);
-        
+
         const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const page = await pdf.getPage(1); // First page of map
-        
-        // Render at high resolution for quality map viewing
-        const scale = 2.0;
+
+        // Render a alta resolución, pero respetando el límite de lienzo de iOS/Safari
+        // (máx. ~16.7 Mpx y 4096 px por lado). Si se excede, el canvas queda en blanco.
+        const baseViewport = page.getViewport({ scale: 1 });
+        const MAX_SIDE = 4096;
+        const MAX_AREA = 16000000;
+        let scale = 2.0;
+        const sideLimit = MAX_SIDE / Math.max(baseViewport.width, baseViewport.height);
+        const areaLimit = Math.sqrt(MAX_AREA / (baseViewport.width * baseViewport.height));
+        scale = Math.min(scale, sideLimit, areaLimit);
+        if (!isFinite(scale) || scale <= 0) scale = 1;
         const viewport = page.getViewport({ scale });
-        
+
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+
         await page.render({ canvasContext: context, viewport: viewport }).promise;
-        
+
         this.imageUrl = canvas.toDataURL('image/jpeg', 0.85);
-        this.imageSize.width = canvas.width;
-        this.imageSize.height = canvas.height;
+        const outW = canvas.width;
+        const outH = canvas.height;
+        // Liberar memoria del lienzo (importante en móviles con PDFs grandes)
+        canvas.width = 0;
+        canvas.height = 0;
+        try { await pdf.cleanup(); } catch (e) {}
+        this.imageSize.width = outW;
+        this.imageSize.height = outH;
         this.geoMetadata = geoMetadata;
-        
+
         return {
             url: this.imageUrl,
-            width: canvas.width,
-            height: canvas.height,
+            width: outW,
+            height: outH,
             isPdf: true,
             numPages: pdf.numPages,
             hasGeoReference: !!geoMetadata,
@@ -62,12 +76,12 @@ export class MapCalibrator {
         try {
             const uint8 = new Uint8Array(arrayBuffer);
             const decoder = new TextDecoder('latin1');
-            
+
             // 1. Check tail (last 1.5 MB where PDF catalog and page viewports reside)
             const tailSize = Math.min(uint8.length, 1572864);
             const tailSub = uint8.subarray(uint8.length - tailSize);
             const tailText = decoder.decode(tailSub);
-            
+
             let meta = MapCalibrator.parseGeoMetadataString(tailText);
             if (meta) return meta;
 
@@ -75,7 +89,7 @@ export class MapCalibrator {
             const headSize = Math.min(uint8.length, 524288);
             const headSub = uint8.subarray(0, headSize);
             const headText = decoder.decode(headSub);
-            
+
             meta = MapCalibrator.parseGeoMetadataString(headText);
             if (meta) return meta;
 
@@ -238,11 +252,11 @@ export class MapCalibrator {
         // Basic affine transformation (first order polynomial)
         // lon = A*x + B*y + C
         // lat = D*x + E*y + F
-        
+
         let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0, sumYY = 0;
         let sumLon = 0, sumLonX = 0, sumLonY = 0;
         let sumLat = 0, sumLatX = 0, sumLatY = 0;
-        
+
         const n = this.controlPoints.length;
 
         this.controlPoints.forEach(p => {
@@ -251,11 +265,11 @@ export class MapCalibrator {
             sumXX += p.px * p.px;
             sumXY += p.px * p.py;
             sumYY += p.py * p.py;
-            
+
             sumLon += p.lng;
             sumLonX += p.lng * p.px;
             sumLonY += p.lng * p.py;
-            
+
             sumLat += p.lat;
             sumLatX += p.lat * p.px;
             sumLatY += p.lat * p.py;
@@ -263,7 +277,7 @@ export class MapCalibrator {
 
         // Solve system for Lon (A, B, C)
         const det = n * (sumXX * sumYY - sumXY * sumXY) - sumX * (sumX * sumYY - sumXY * sumY) + sumY * (sumX * sumXY - sumXX * sumY);
-        
+
         if (Math.abs(det) < 1e-10) {
             throw new Error("Puntos colineales o sistema singular. Intente con otros puntos.");
         }
@@ -271,7 +285,7 @@ export class MapCalibrator {
         const A = (sumLon * (sumXX * sumYY - sumXY * sumXY) - sumX * (sumLonX * sumYY - sumLonY * sumXY) + sumY * (sumLonX * sumXY - sumLonY * sumXX)) / det;
         const B = (n * (sumLonX * sumYY - sumLonY * sumXY) - sumLon * (sumX * sumYY - sumXY * sumY) + sumY * (sumX * sumLonY - sumLonX * sumY)) / det;
         const C = (n * (sumXX * sumLonY - sumXY * sumLonX) - sumX * (sumX * sumLonY - sumLonX * sumY) + sumLon * (sumX * sumXY - sumXX * sumY)) / det;
-        
+
         // Solve system for Lat (D, E, F)
         const D = (sumLat * (sumXX * sumYY - sumXY * sumXY) - sumX * (sumLatX * sumYY - sumLatY * sumXY) + sumY * (sumLatX * sumXY - sumLatY * sumXX)) / det;
         const E = (n * (sumLatX * sumYY - sumLatY * sumXY) - sumLat * (sumX * sumYY - sumXY * sumY) + sumY * (sumX * sumLatY - sumLatX * sumY)) / det;
@@ -283,7 +297,7 @@ export class MapCalibrator {
         // Note: Leaflet's ImageOverlay assumes a rectangular (non-rotated) bounding box.
         // For true affine (rotated) support, Leaflet.ImageOverlay.Rotated or similar is needed.
         // Assuming minimal rotation for a simple bounds approximation:
-        
+
         this.matrix = { A, B, C, D, E, F };
         return this.matrix;
     }
@@ -293,39 +307,39 @@ export class MapCalibrator {
         // Re-deriving from least squares. A simple approximation:
         // We need the inverse mapping or we can just use the affine.
         // Wait, the least squares above was solving:
-        // lon = A + B*x + C*y ... wait, the variables were A, B, C. 
+        // lon = A + B*x + C*y ... wait, the variables were A, B, C.
         // Actually, let's use the matrix to map corners.
         // Let's assume standard linear mapping for simplicity in this MVP:
-        
+
         // In this basic version, let's just find bounds
         const minLng = Math.min(...this.controlPoints.map(p => p.lng));
         const maxLng = Math.max(...this.controlPoints.map(p => p.lng));
         const minLat = Math.min(...this.controlPoints.map(p => p.lat));
         const maxLat = Math.max(...this.controlPoints.map(p => p.lat));
-        
+
         return { lat: minLat, lng: minLng };
     }
-    
-    getImageBounds() {
+
+    getImageBounds(width = this.imageSize.width, height = this.imageSize.height) {
         if (this.controlPoints.length < 2) return null;
-        
+
         // For basic ImageOverlay we just use min/max of control points scaled to image size.
         // A robust implementation would use the affine matrix.
         // Simplified bounds calculation:
         const pts = this.controlPoints;
         const p1 = pts[0];
         const p2 = pts[1];
-        
+
         // degrees per pixel
         const dLngDpX = (p2.lng - p1.lng) / (p2.px - p1.px || 1);
         const dLatDpY = (p2.lat - p1.lat) / (p2.py - p1.py || 1);
-        
+
         const lng0 = p1.lng - (p1.px * dLngDpX);
         const lat0 = p1.lat - (p1.py * dLatDpY);
-        
-        const lng1 = lng0 + (this.imageSize.width * dLngDpX);
-        const lat1 = lat0 + (this.imageSize.height * dLatDpY);
-        
+
+        const lng1 = lng0 + (width * dLngDpX);
+        const lat1 = lat0 + (height * dLatDpY);
+
         return [
             [Math.min(lat0, lat1), Math.min(lng0, lng1)], // SouthWest
             [Math.max(lat0, lat1), Math.max(lng0, lng1)]  // NorthEast
@@ -341,7 +355,7 @@ export class MapCalibrator {
             controlPoints: this.controlPoints,
             createdAt: Date.now()
         };
-        
+
         return await saveMap(mapData);
     }
 }

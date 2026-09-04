@@ -1,18 +1,23 @@
 /**
  * CampoMaps - Service Worker
- * Version: 1.0.0
- * 
+ * Version: 2.0.0 (v23)
+ *
  * Offline-first PWA Service Worker for CampoMaps field mapping application.
  * Handles app shell caching, dynamic map tile caching with LRU eviction,
  * offline fallbacks, and cache management messaging.
  */
 
-const CACHE_VERSION = 'v22';
+// Versión compartida con la página (js/version.js)
+try { importScripts('./js/version.js'); } catch (e) { /* fallback abajo */ }
+const CACHE_VERSION = (typeof self.CAMPOMAPS_VERSION === 'string' && self.CAMPOMAPS_VERSION) ? self.CAMPOMAPS_VERSION : 'v23';
+const NETWORK_TIMEOUT_MS = 4000;
 const APP_CACHE_NAME = `campo-maps-${CACHE_VERSION}`;
-const TILE_CACHE_NAME = `campo-maps-tiles-${CACHE_VERSION}`;
-const MAX_TILES = 5000;
+// La caché de teselas NO lleva versión: los mapas offline descargados sobreviven a las actualizaciones.
+const TILE_CACHE_NAME = 'campo-maps-tiles';
+const MAX_TILES = 12000;
 const DB_NAME = 'CampoMaps_SW_DB';
 const DB_STORE_NAME = 'tile_metadata';
+let tileAccessCounter = 0;
 
 // Core Application Shell assets to precache on install
 const PRECACHE_ASSETS = [
@@ -20,8 +25,9 @@ const PRECACHE_ASSETS = [
   './index.html',
   './manifest.json',
   './css/style.css',
-  
+
   // JavaScript Modules
+  './js/version.js',
   './js/app.js',
   './js/map-engine.js',
   './js/gps-tracker.js',
@@ -66,11 +72,11 @@ const PRECACHE_ASSETS = [
 // Offline fallback tile SVG (256x256 dark themed grid)
 const OFFLINE_TILE_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <rect width="256" height="256" fill="#16213e" stroke="#0f3460" stroke-width="2"/>
-  <path d="M0 64 H256 M0 128 H256 M0 192 H256 M64 0 V256 M128 0 V256 M192 0 V256" stroke="#1f2d5a" stroke-width="1" stroke-dasharray="4 4"/>
-  <circle cx="128" cy="128" r="18" fill="#0f3460" stroke="#e94560" stroke-width="1.5"/>
-  <path d="M122 122 L134 134 M134 122 L122 134" stroke="#e94560" stroke-width="2" stroke-linecap="round"/>
-  <text x="128" y="160" text-anchor="middle" fill="#7f8c8d" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="500">Sin conexión</text>
+  <rect width="256" height="256" fill="#6b7280" stroke="#9ca3af" stroke-width="2"/>
+  <path d="M0 64 H256 M0 128 H256 M0 192 H256 M64 0 V256 M128 0 V256 M192 0 V256" stroke="#9ca3af" stroke-width="1" stroke-dasharray="4 4"/>
+  <circle cx="128" cy="128" r="18" fill="#4b5563" stroke="#f59e0b" stroke-width="1.5"/>
+  <path d="M122 122 L134 134 M134 122 L122 134" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+  <text x="128" y="160" text-anchor="middle" fill="#f3f4f6" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="500">Sin conexión</text>
 </svg>`.trim();
 
 // Offline HTML fallback
@@ -83,8 +89,8 @@ const OFFLINE_HTML_FALLBACK = `
   <title>CampoMaps - Modo Offline</title>
   <style>
     body {
-      background-color: #1a1a2e;
-      color: #e0e0e0;
+      background-color: #0d1424;
+      color: #f1f5f9;
       font-family: system-ui, -apple-system, sans-serif;
       display: flex;
       flex-direction: column;
@@ -97,11 +103,11 @@ const OFFLINE_HTML_FALLBACK = `
       text-align: center;
     }
     .icon { font-size: 48px; margin-bottom: 16px; }
-    h1 { color: #4ecca3; font-size: 24px; margin: 0 0 12px 0; }
-    p { color: #a0a0a0; font-size: 15px; max-width: 400px; line-height: 1.5; margin: 0 0 24px 0; }
+    h1 { color: #34d399; font-size: 24px; margin: 0 0 12px 0; }
+    p { color: #a5afc4; font-size: 15px; max-width: 400px; line-height: 1.5; margin: 0 0 24px 0; }
     button {
-      background: #e94560;
-      color: white;
+      background: #10b981;
+      color: #04110b;
       border: none;
       padding: 12px 24px;
       font-size: 15px;
@@ -164,16 +170,25 @@ async function recordTileAccess(url, response) {
       if (!isNaN(parsed) && parsed > 0) size = parsed;
     }
 
-    store.put({
-      url: url,
-      timestamp: Date.now(),
-      size: size
-    });
+    // Conserva la marca 'pinned' si ya existía
+    const getReq = store.get(url);
+    getReq.onsuccess = () => {
+      const prev = getReq.result;
+      store.put({
+        url: url,
+        timestamp: Date.now(),
+        size: size,
+        pinned: prev && prev.pinned ? 1 : 0
+      });
+    };
 
     tx.oncomplete = () => {
       db.close();
-      // Check and enforce tile cache limit asynchronously
-      enforceTileLimit().catch((err) => console.warn('[SW] enforceTileLimit error:', err));
+      // Poda amortiguada: una vez cada 150 accesos, no en cada tesela
+      tileAccessCounter++;
+      if (tileAccessCounter % 150 === 0) {
+        enforceTileLimit().catch((err) => console.warn('[SW] enforceTileLimit error:', err));
+      }
     };
     tx.onerror = () => {
       db.close();
@@ -212,6 +227,11 @@ async function enforceTileLimit() {
       cursorReq.onsuccess = async (e) => {
         const cursor = e.target.result;
         if (cursor && urlsToDelete.length < excess) {
+          if (cursor.value && cursor.value.pinned) {
+            // Tesela descargada a propósito para un plano: nunca se desaloja
+            cursor.continue();
+            return;
+          }
           urlsToDelete.push(cursor.value.url);
           cursor.delete();
           cursor.continue();
@@ -238,8 +258,8 @@ async function enforceTileLimit() {
 
 /**
  * Fallback FIFO cache trimmer when IndexedDB is not used.
- * @param {string} cacheName 
- * @param {number} maxItems 
+ * @param {string} cacheName
+ * @param {number} maxItems
  */
 async function trimCacheFallback(cacheName, maxItems) {
   try {
@@ -280,7 +300,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(APP_CACHE_NAME);
-      
+
       // Cache each asset individually with error catching to avoid install failure on optional files
       const cachePromises = PRECACHE_ASSETS.map(async (assetUrl) => {
         try {
@@ -310,8 +330,32 @@ self.addEventListener('activate', (event) => {
 
   event.waitUntil(
     (async () => {
-      // Delete obsolete caches
       const cacheNames = await caches.keys();
+
+      // Migrar teselas de cachés versionadas antiguas (campo-maps-tiles-vNN) a la caché estable
+      const legacyTileCaches = cacheNames.filter((n) => n.startsWith('campo-maps-tiles-') && n !== TILE_CACHE_NAME);
+      if (legacyTileCaches.length > 0) {
+        try {
+          const target = await caches.open(TILE_CACHE_NAME);
+          for (const legacyName of legacyTileCaches) {
+            const legacy = await caches.open(legacyName);
+            const keys = await legacy.keys();
+            for (const req of keys) {
+              try {
+                if (!(await target.match(req))) {
+                  const res = await legacy.match(req);
+                  if (res) await target.put(req, res);
+                }
+              } catch (e) { /* tesela individual: se ignora */ }
+            }
+            console.log('[SW] Teselas migradas desde', legacyName, keys.length);
+          }
+        } catch (err) {
+          console.warn('[SW] Migración de teselas falló:', err);
+        }
+      }
+
+      // Delete obsolete caches
       const deletePromises = cacheNames
         .filter((cacheName) => {
           // Check if this is a CampoMaps cache from a previous version
@@ -337,8 +381,8 @@ self.addEventListener('activate', (event) => {
 
 /**
  * Determine if a request is for an OpenStreetMap or other map tile.
- * @param {Request} request 
- * @param {URL} url 
+ * @param {Request} request
+ * @param {URL} url
  * @returns {boolean}
  */
 function isTileRequest(request, url) {
@@ -357,8 +401,8 @@ function isTileRequest(request, url) {
 
 /**
  * Determine if a request is for an App Shell asset (HTML, CSS, JS, manifest, fonts, icons, Leaflet).
- * @param {Request} request 
- * @param {URL} url 
+ * @param {Request} request
+ * @param {URL} url
  * @returns {boolean}
  */
 function isAppAssetRequest(request, url) {
@@ -394,6 +438,20 @@ function createOfflineTileResponse() {
   });
 }
 
+/**
+ * fetch con tiempo límite (AbortController).
+ * @param {Request} request
+ * @param {number} ms
+ */
+function fetchWithTimeout(request, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  const sameOrigin = new URL(request.url).origin === self.location.origin;
+  // Los archivos propios se revalidan siempre (ETag/304) para no mezclar versiones de módulos
+  const init = sameOrigin ? { signal: controller.signal, cache: 'no-cache' } : { signal: controller.signal };
+  return fetch(request, init).finally(() => clearTimeout(timer));
+}
+
 // ==========================================
 // Fetch Event & Caching Strategies
 // ==========================================
@@ -424,23 +482,9 @@ self.addEventListener('fetch', (event) => {
         const cachedResponse = await tileCache.match(request);
 
         if (cachedResponse) {
-          // Update LRU access metadata in the background
+          // Mosaico en caché: se sirve directamente. No se revalida en segundo plano
+          // para no consumir datos móviles en campo (la imagen satelital cambia poco).
           recordTileAccess(request.url, cachedResponse).catch(() => {});
-
-          // If online, perform background cache revalidation
-          if (navigator.onLine) {
-            fetch(request)
-              .then(async (networkResponse) => {
-                if (networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
-                  await tileCache.put(request, networkResponse.clone());
-                  recordTileAccess(request.url, networkResponse).catch(() => {});
-                }
-              })
-              .catch(() => {
-                // Background update failed silently; cached tile continues serving
-              });
-          }
-
           return cachedResponse;
         }
 
@@ -469,19 +513,20 @@ self.addEventListener('fetch', (event) => {
   if (isAppAssetRequest(request, url)) {
     event.respondWith(
       (async () => {
+        const appCache = await caches.open(APP_CACHE_NAME);
         try {
-          const networkResponse = await fetch(request);
+          // Red primero, pero con tiempo límite: con señal débil en campo
+          // no se espera indefinidamente y se sirve la copia en caché.
+          const networkResponse = await fetchWithTimeout(request, NETWORK_TIMEOUT_MS);
           if (networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
-            const appCache = await caches.open(APP_CACHE_NAME);
             appCache.put(request, networkResponse.clone()).catch(() => {});
             return networkResponse;
           }
         } catch (err) {
-          // Offline: fall back to cache
+          // Sin red o tiempo agotado: se usa la caché
         }
 
-        const appCache = await caches.open(APP_CACHE_NAME);
-        const cachedResponse = await appCache.match(request);
+        const cachedResponse = await appCache.match(request, { ignoreSearch: true });
         if (cachedResponse) {
           return cachedResponse;
         }
@@ -544,7 +589,7 @@ self.addEventListener('fetch', (event) => {
           headers: { 'Content-Type': 'text/plain' }
         });
       }
-    })
+    })()
   );
 });
 

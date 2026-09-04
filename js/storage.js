@@ -138,6 +138,20 @@ export const saveSetting = (key, value) => update('settings', { key, value });
 export const getSetting = (key) => get('settings', key);
 export const getSettings = () => getAll('settings');
 
+/**
+ * Borra todos los almacenes locales (proyectos, mapas, rutas, marcadores y ajustes).
+ */
+export function clearAllData() {
+    return new Promise((resolve, reject) => {
+        if (!db) return reject(new Error('Base de datos no inicializada'));
+        const stores = Array.from(db.objectStoreNames);
+        const transaction = db.transaction(stores, 'readwrite');
+        stores.forEach((name) => transaction.objectStore(name).clear());
+        transaction.oncomplete = () => resolve(true);
+        transaction.onerror = (e) => reject(e.target.error);
+    });
+}
+
 export async function requestPersistentStorage() {
     if (navigator.storage && navigator.storage.persist) {
         try {

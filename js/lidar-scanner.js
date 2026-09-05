@@ -717,8 +717,8 @@ export class LidarScanner {
         }
 
         // Conversión ARKit -> ENU documentada en docs/FORMATO-ESCANEO.md:
-        //   este   = x·cos h + z·sin h
-        //   norte  = x·sin h - z·cos h
+        //   este   =  x·cos h - z·sin h
+        //   norte  = -x·sin h - z·cos h
         //   arriba = y
         const h = this._rumbo * Math.PI / 180;
         const cs = Math.cos(h);
@@ -727,8 +727,8 @@ export class LidarScanner {
             const x = this._pos[i * 3];
             const y = this._pos[i * 3 + 1];
             const z = this._pos[i * 3 + 2];
-            positions[i * 3] = x * cs + z * sn;
-            positions[i * 3 + 1] = x * sn - z * cs;
+            positions[i * 3] = x * cs - z * sn;
+            positions[i * 3 + 1] = -x * sn - z * cs;
             positions[i * 3 + 2] = y;
         }
         return { positions, colors, confidences, count: n, frame: 'enu' };

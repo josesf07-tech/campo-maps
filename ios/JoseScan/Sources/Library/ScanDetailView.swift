@@ -61,6 +61,11 @@ public struct ScanDetailView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 14)
             }
+            .alert("Listo", isPresented: enlaceExito) {
+                Button("Cerrar", role: .cancel) { mensajeExito = nil }
+            } message: {
+                Text(mensajeExito ?? "")
+            }
         }
         .navigationTitle(meta.nombre)
         .navigationBarTitleDisplayMode(.inline)
@@ -89,11 +94,6 @@ public struct ScanDetailView: View {
             Button("Entendido", role: .cancel) { mensajeError = nil }
         } message: {
             Text(mensajeError ?? "")
-        }
-        .alert("Listo", isPresented: enlaceExito) {
-            Button("Cerrar", role: .cancel) { mensajeExito = nil }
-        } message: {
-            Text(mensajeExito ?? "")
         }
     }
 

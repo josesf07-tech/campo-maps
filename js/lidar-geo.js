@@ -160,8 +160,8 @@ export function ejeVertical(frame) {
  *
  * Con `h` = rumbo verdadero (en radianes) del eje −Z de ARKit:
  * ```
- * este   = x·cos h + z·sen h
- * norte  = x·sen h − z·cos h
+ * este   =  x·cos h − z·sen h
+ * norte  = −x·sen h − z·cos h
  * arriba = y
  * ```
  *
@@ -179,8 +179,8 @@ export function arkitAEnu(positions, rumboGrados) {
         const x = acceso.obtener(i, 0);
         const y = acceso.obtener(i, 1);
         const z = acceso.obtener(i, 2);
-        salida[i * 3] = x * cos + z * sen;      // este
-        salida[i * 3 + 1] = x * sen - z * cos;  // norte
+        salida[i * 3] = x * cos - z * sen;       // este
+        salida[i * 3 + 1] = -x * sen - z * cos;  // norte
         salida[i * 3 + 2] = y;                  // arriba
     }
     return salida;

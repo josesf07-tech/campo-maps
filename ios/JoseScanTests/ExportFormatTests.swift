@@ -143,7 +143,7 @@ final class ExportFormatTests: XCTestCase {
         XCTAssertEqual(filas.count, 1000,
                        "El PLY ascii debe traer exactamente 1000 líneas de datos")
 
-        let campos = filas[41].split(separator: " ").map(String.init)
+        let campos = filas[41].split(separator: " ").map { String($0) }
         XCTAssertEqual(campos.count, 7,
                        "Cada línea del PLY ascii debe traer x y z r g b confianza (7 campos)")
         XCTAssertEqual(Double(campos[0]) ?? .nan, 0.1, accuracy: 1e-4,

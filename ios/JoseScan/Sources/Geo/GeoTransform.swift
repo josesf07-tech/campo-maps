@@ -8,9 +8,14 @@
 //  Ver docs/FORMATO-ESCANEO.md §3. Con `h` = rumbo verdadero (en radianes) del
 //  eje −Z de ARKit en el instante del anclaje:
 //
-//      este   = x·cos h + z·sin h
-//      norte  = x·sin h − z·cos h
-//      arriba = y
+//      este   =  x·cos h − z·sin h
+//      norte  = −x·sin h − z·cos h
+//      arriba =  y
+//
+//  Los signos quedan fijados por la definición de `heading`: el eje −Z apunta
+//  al azimut h, así que (0,0,−1) debe caer en (sin h, cos h). Con h = 90° el
+//  este ha de salir +1; el signo contrario espejaría el escaneo. Ojo: con
+//  h = 0° o 180° ambos convenios coinciden, así que no sirven para verificarlo.
 //
 //  Es una rotación propia (determinante +1) alrededor de la vertical, así que
 //  conserva distancias, ángulos y el sentido de giro de los triángulos: los
@@ -111,13 +116,14 @@ public enum GeoTransform {
         let h = rumboGrados * Double.pi / 180.0
         let senH = Float(sin(h))
         let cosH = Float(cos(h))
-        // Transpuesta de la matriz directa:
-        //   x =  e·cos h + n·sin h
+        // El bloque horizontal es una involución, así que la inversa es la
+        // misma fórmula aplicada sobre (este, norte):
+        //   x =  e·cos h − n·sin h
         //   y =  u
-        //   z =  e·sin h − n·cos h
-        let x = p.x * cosH + p.y * senH
+        //   z = −e·sin h − n·cos h
+        let x = p.x * cosH - p.y * senH
         let y = p.z
-        let z = p.x * senH - p.y * cosH
+        let z = -p.x * senH - p.y * cosH
         return SIMD3<Float>(x, y, z)
     }
 
@@ -247,8 +253,8 @@ public enum GeoTransform {
 
     /// Rotación ARKit → ENU con el seno y el coseno ya calculados.
     private static func rotar(_ p: SIMD3<Float>, senH: Float, cosH: Float) -> SIMD3<Float> {
-        let este = p.x * cosH + p.z * senH
-        let norte = p.x * senH - p.z * cosH
+        let este = p.x * cosH - p.z * senH
+        let norte = -p.x * senH - p.z * cosH
         let arriba = p.y
         return SIMD3<Float>(este, norte, arriba)
     }

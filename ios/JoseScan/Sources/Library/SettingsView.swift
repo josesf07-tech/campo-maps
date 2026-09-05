@@ -50,6 +50,20 @@ public struct SettingsView: View {
                     seccionAcercaDe
                 }
                 .scrollContentBackground(.hidden)
+                .alert("¿Restaurar los valores por defecto?", isPresented: $confirmarRestaurar) {
+                    Button("Restaurar", role: .destructive) {
+                        ajustes.restaurarValoresPorDefecto()
+                        mensajeExito = "Los ajustes volvieron a los valores de fábrica"
+                    }
+                    Button("Cancelar", role: .cancel) { }
+                } message: {
+                    Text("Sólo se cambian las preferencias; los escaneos guardados no se tocan.")
+                }
+                .alert("Listo", isPresented: enlaceExito) {
+                    Button("Cerrar", role: .cancel) { mensajeExito = nil }
+                } message: {
+                    Text(mensajeExito ?? "")
+                }
             }
             .navigationTitle("Ajustes")
             .navigationBarTitleDisplayMode(.inline)
@@ -75,24 +89,10 @@ public struct SettingsView: View {
             } message: {
                 Text("Esta acción es definitiva. Exporta antes lo que necesites conservar: no hay forma de recuperar los escaneos.")
             }
-            .alert("¿Restaurar los valores por defecto?", isPresented: $confirmarRestaurar) {
-                Button("Restaurar", role: .destructive) {
-                    ajustes.restaurarValoresPorDefecto()
-                    mensajeExito = "Los ajustes volvieron a los valores de fábrica"
-                }
-                Button("Cancelar", role: .cancel) { }
-            } message: {
-                Text("Sólo se cambian las preferencias; los escaneos guardados no se tocan.")
-            }
             .alert("No se pudo completar la acción", isPresented: enlaceError) {
                 Button("Entendido", role: .cancel) { mensajeError = nil }
             } message: {
                 Text(mensajeError ?? "")
-            }
-            .alert("Listo", isPresented: enlaceExito) {
-                Button("Cerrar", role: .cancel) { mensajeExito = nil }
-            } message: {
-                Text(mensajeExito ?? "")
             }
         }
         .tint(JoseTheme.acento)

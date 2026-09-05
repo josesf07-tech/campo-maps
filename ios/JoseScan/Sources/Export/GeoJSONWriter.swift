@@ -70,7 +70,8 @@ public enum GeoJSONWriter {
     ///
     /// - En marco `enu` el plano horizontal es X–Y (X = Este, Y = Norte).
     /// - En marco `arkit` el plano horizontal es X–Z y se rota con el rumbo:
-    ///   `este = x·cos h + z·sin h`, `norte = x·sin h − z·cos h`.
+    ///   `este = x·cos h − z·sin h`, `norte = −x·sin h − z·cos h`
+    ///   (ver docs/FORMATO-ESCANEO.md §3; debe coincidir con GeoTransform).
     public static func esquinasHorizontales(bbox: BoundingBox,
                                             marco: ScanCoordinateFrame,
                                             rumboGrados: Double) -> [PuntoPlano] {
@@ -92,8 +93,8 @@ public enum GeoJSONWriter {
             let z0 = Double(bbox.min.z), z1 = Double(bbox.max.z)
             let pares: [(Double, Double)] = [(x0, z0), (x1, z0), (x1, z1), (x0, z1)]
             crudas = pares.map { par in
-                PuntoPlano(este: par.0 * cosH + par.1 * senH,
-                           norte: par.0 * senH - par.1 * cosH)
+                PuntoPlano(este: par.0 * cosH - par.1 * senH,
+                           norte: -par.0 * senH - par.1 * cosH)
             }
         }
 

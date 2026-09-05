@@ -407,8 +407,8 @@ enum Fixtures {
     static func crc32(_ datos: Data) -> UInt32 {
         var crc: UInt32 = 0xFFFF_FFFF
         for byte in datos {
-            let indice = Int((crc ^ UInt32(byte)) & 0xFF)
-            crc = tablaCRC32[indice] ^ (crc >> 8)
+            let posicion = Int((crc ^ UInt32(byte)) & 0xFF)
+            crc = tablaCRC32[posicion] ^ (crc >> 8)
         }
         return crc ^ 0xFFFF_FFFF
     }

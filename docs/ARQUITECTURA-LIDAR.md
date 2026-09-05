@@ -253,21 +253,27 @@ verdadero, en radianes, del eje −Z de ARKit en el instante del anclaje
 (`GeoReference.heading`, en grados, hacia radianes):
 
 ```
-este   =  x·cos(h) + z·sin(h)
-norte  =  x·sin(h) − z·cos(h)
+este   =  x·cos(h) − z·sin(h)
+norte  = −x·sin(h) − z·cos(h)
 arriba =  y
 ```
 
 En forma matricial, con `p_arkit = (x, y, z)`:
 
 ```
-        ┌  cos h    0    sin h ┐
-R_enu = │  sin h    0   −cos h │        p_enu = R_enu · p_arkit
+        ┌  cos h    0   −sin h ┐
+R_enu = │ −sin h    0   −cos h │        p_enu = R_enu · p_arkit
         └    0      1      0   ┘
 ```
 
-La matriz es ortonormal (rotación rígida), así que **conserva distancias,
-ángulos y áreas**: `ScanMesh.surfaceArea()` da el mismo valor antes y después.
+Los signos quedan fijados por la definición de `heading`: el eje −Z apunta al
+azimut `h`, así que `(0, 0, −1)` tiene que caer en `(sin h, cos h)`. Con `h = 90°`
+el este debe salir `+1`; el signo contrario espeja el escaneo. Conviene insistir
+en que **con `h = 0°` o `180°` los dos signos coinciden**, así que sólo un rumbo
+oblicuo sirve para comprobarlo (`tests/lidar-rumbo.test.mjs` lo fija).
+
+La matriz es ortonormal y de determinante +1 (rotación rígida propia), así que
+**conserva distancias, ángulos y áreas**: `ScanMesh.surfaceArea()` da el mismo valor antes y después.
 Todo el error de esta etapa se concentra en `h`, y gira el escaneo completo en
 bloque; por eso un rumbo malo se corrige reanclando, sin volver a escanear.
 

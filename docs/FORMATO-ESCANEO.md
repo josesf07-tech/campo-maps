@@ -76,12 +76,32 @@ Reglas:
 | `enu`   | **+X = Este, +Y = Norte, +Z = Arriba** (metros)   | Escaneo georreferenciado |
 
 La conversión ARKit → ENU es una rotación alrededor del eje vertical más un
-cambio de eje. Con `h` = rumbo verdadero en radianes del eje −Z de ARKit:
+cambio de eje. Con `h` = rumbo verdadero en radianes del eje −Z de ARKit y
+`f = −z` (la componente «hacia adelante» del punto):
 
 ```
-este  =  x·cos(h) - (-z)·sin(h)   ... es decir  e = x·cos h + z·sin h
-norte =  x·sin(h) + (-z)·cos(h)   ... es decir  n = x·sin h - z·cos h
-arriba = y
+este   =  x·cos h + f·sin h   ... es decir  e =  x·cos h − z·sin h
+norte  = −x·sin h + f·cos h   ... es decir  n = −x·sin h − z·cos h
+arriba =  y
+```
+
+La comprobación que fija los signos: el eje −Z de ARKit es, por definición de
+`heading`, el que apunta al azimut `h`, así que el vector `(0, 0, −1)` debe caer
+en `(este, norte) = (sin h, cos h)`. Con `h = 90°` (el teléfono mirando al este)
+tiene que dar `este = +1`; si diera `−1` los escaneos saldrían espejados.
+Los rumbos 0° y 180° **no** sirven para verificarlo: ahí ambos signos coinciden.
+
+La matriz 3×3 completa es ortonormal y de determinante +1 (una rotación propia),
+de modo que se conservan distancias, ángulos y el sentido de giro de los
+triángulos: los índices de la malla no se tocan.
+
+La inversa ENU → ARKit es la misma fórmula aplicada sobre `(e, n)`, porque el
+bloque horizontal es una involución:
+
+```
+x =  e·cos h − n·sin h
+z = −e·sin h − n·cos h
+y =  u
 ```
 
 El origen del marco ENU es exactamente `geo.latitude / geo.longitude /

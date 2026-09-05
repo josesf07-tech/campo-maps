@@ -10,3 +10,7 @@ scripts
 package.json
 package-lock.json
 CLAUDE.md
+playwright.config.js
+test-results
+playwright-report
+blob-report

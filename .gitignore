@@ -5,3 +5,7 @@ cloudflared.exe
 server.py
 generate_icons.py
 node_modules/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

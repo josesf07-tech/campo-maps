@@ -6,10 +6,18 @@
   "type": "module",
   "scripts": {
     "test": "node --test \"tests/**/*.test.mjs\"",
+    "test:e2e": "playwright test",
+    "test:all": "npm test && npm run test:e2e",
     "bump": "node scripts/bump-version.mjs",
     "check-version": "node scripts/bump-version.mjs --check"
   },
   "devDependencies": {
-    "proj4": "2.9.2"
+    "@playwright/test": "^1.63.0",
+    "exceljs": "4.4.0",
+    "jszip": "3.10.1",
+    "leaflet": "1.9.4",
+    "pdfjs-dist": "3.11.174",
+    "proj4": "2.9.2",
+    "xlsx": "0.18.5"
   }
 }

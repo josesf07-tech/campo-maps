@@ -86,8 +86,11 @@ Reglas:
 npm test    # node --test tests/
 ```
 
-Runner integrado de Node, sin dependencias de test. La única `devDependency` es `proj4`,
-que las pruebas cargan para verificar las conversiones de `coords.js` fuera del navegador.
+Runner integrado de Node, sin framework de pruebas. `proj4` es `devDependency` para poder
+verificar las conversiones de `coords.js` fuera del navegador. Las demás `devDependencies`
+(`@playwright/test`, y copias locales de leaflet, pdfjs-dist, jszip, xlsx y exceljs con la
+misma versión que las CDN) son solo para la prueba de humo end-to-end; **nada de esto entra
+en la app publicada**, que sigue cargando sus librerías por CDN.
 
 Los módulos con pruebas son los de cálculo: **`js/coords.js`, `js/measurement.js` y
 `js/calibration.js`**. Tienen pruebas porque un error ahí no rompe la app de forma visible:
@@ -98,8 +101,36 @@ Regla: **cambiar cualquiera de esos tres módulos exige ejecutar `npm test` ante
 terminar.** Si un cambio de comportamiento invalida una prueba, se corrige la prueba de
 forma explícita y se dice en el commit; no se borra.
 
-Los módulos que dependen del DOM, de Leaflet o del GPS no tienen pruebas automáticas: se
-verifican a mano en el navegador.
+### Prueba de humo end-to-end (Playwright)
+
+```bash
+npm run test:e2e    # playwright test  (tests/e2e/)
+npm run test:all    # unitarias + end-to-end
+```
+
+Red de seguridad para tocar `js/app.js` y la interfaz. No comprueba reglas de negocio:
+comprueba que la app **arranca** y que su esqueleto sigue en pie — sin errores de consola
+ni excepciones ni recursos propios rotos, mapa de Leaflet montado con la capa base por
+defecto, los cuatro paneles laterales abriendo y cerrando, los modales principales, los
+botones de respaldo, `CampoMapsDB` creada con sus cinco almacenes, los puentes globales
+`window.__campoMaps*` definidos y el Service Worker registrado. `tests/e2e/precache.spec.mjs`
+además lee `PRECACHE_ASSETS` de `sw.js` y verifica contra el disco que no falta ni sobra
+nada: es la comprobación que evita el fallo que solo aparece sin conexión.
+
+Detalles del montaje:
+
+- `tests/e2e/static-server.mjs` sirve el repositorio en `http://127.0.0.1:4173`
+  (`file://` no vale: hay módulos ES y Service Worker).
+- Las CDN **no se piden a internet**: `tests/e2e/fixtures.mjs` intercepta la red y responde
+  Leaflet, pdf.js, proj4, JSZip, xlsx y ExcelJS desde `node_modules` con la misma versión
+  que pide `index.html`, y las teselas con un PNG de 1x1. Si `index.html` estrena una CDN
+  hay que añadirla a `LIBRERIAS_CDN` (y a `PRECACHE_ASSETS`), o la prueba falla nombrando
+  la URL que se quedó fuera.
+- El GPS se simula con una posición fija en Bogotá (4.65, -74.06) y permiso concedido.
+
+Los módulos que dependen del DOM, de Leaflet o del GPS no tienen pruebas unitarias: su
+única cobertura automática es esta prueba de humo, que verifica el arranque y el cableado,
+no el comportamiento. Lo demás se sigue verificando a mano en el navegador.
 
 ## Service Worker (`sw.js`)
 

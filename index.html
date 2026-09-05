@@ -19,7 +19,7 @@
     <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 
     <!-- Versión única de la app (compartida con el Service Worker) -->
-    <script src="js/version.js?v=25"></script>
+    <script src="js/version.js?v=26"></script>
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -57,7 +57,7 @@
         })();
     </script>
 
-    <link rel="stylesheet" href="css/style.css?v=25">
+    <link rel="stylesheet" href="css/style.css?v=26">
 </head>
 <body>
 
@@ -355,6 +355,24 @@
                         <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-trash"/></svg>
                         Borrar todos los datos locales
                     </button>
+                </div>
+
+                <div class="setting-group">
+                    <div class="section-title">Respaldo y restauración</div>
+                    <div class="card">
+                        <div class="card-heading">Copia de seguridad de la jornada</div>
+                        <p class="card-text">Empaqueta proyectos, marcadores, fotos, rutas y planos en un archivo <strong>.zip</strong> para guardarlo o pasarlo a otro teléfono.</p>
+                        <button type="button" id="btn-backup-export" class="btn-outline accent btn-block mt-12">
+                            <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-download"/></svg>
+                            Crear respaldo (.zip)
+                        </button>
+                        <button type="button" id="btn-backup-import" class="btn-outline sky btn-block mt-8">
+                            <svg stroke="currentColor" stroke-width="2" fill="none"><use href="#i-upload"/></svg>
+                            Restaurar desde un respaldo
+                        </button>
+                        <input type="file" id="input-backup-file" class="sr-only" accept=".zip,application/zip,application/x-zip-compressed">
+                        <p class="backup-note mt-12">Los mosaicos de mapa base descargados para uso offline no entran en el respaldo: se vuelven a descargar con conexión.</p>
+                    </div>
                 </div>
             </div>
         </aside>
@@ -722,7 +740,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- App -->
-    <script type="module" src="js/app.js?v=25"></script>
+    <script type="module" src="js/app.js?v=26"></script>
 
     <!-- Service Worker -->
     <script>

@@ -249,9 +249,11 @@ export class MapCalibrator {
             throw new Error("Se requieren al menos 3 puntos de control para la calibración.");
         }
 
-        // Basic affine transformation (first order polynomial)
-        // lon = A*x + B*y + C
-        // lat = D*x + E*y + F
+        // Transformación afín básica (polinomio de primer orden) resuelta por
+        // mínimos cuadrados. Convención real de los coeficientes:
+        //   lon = A + B*x + C*y
+        //   lat = D + E*x + F*y
+        // (A y D son los términos independientes, no los coeficientes de x).
 
         let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0, sumYY = 0;
         let sumLon = 0, sumLonX = 0, sumLonY = 0;

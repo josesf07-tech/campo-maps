@@ -9,7 +9,7 @@
 
 // Versión compartida con la página (js/version.js)
 try { importScripts('./js/version.js'); } catch (e) { /* fallback abajo */ }
-const CACHE_VERSION = (typeof self.CAMPOMAPS_VERSION === 'string' && self.CAMPOMAPS_VERSION) ? self.CAMPOMAPS_VERSION : 'v25';
+const CACHE_VERSION = (typeof self.CAMPOMAPS_VERSION === 'string' && self.CAMPOMAPS_VERSION) ? self.CAMPOMAPS_VERSION : 'v26';
 const NETWORK_TIMEOUT_MS = 4000;
 const APP_CACHE_NAME = `campo-maps-${CACHE_VERSION}`;
 // La caché de teselas NO lleva versión: los mapas offline descargados sobreviven a las actualizaciones.
@@ -41,6 +41,7 @@ const PRECACHE_ASSETS = [
   './js/excel-export.js',
   './js/measurement.js',
   './js/tile-downloader.js',
+  './js/backup.js',
 
   // PWA Icons
   './assets/icons/icon-192.png',

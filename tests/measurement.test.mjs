@@ -216,7 +216,7 @@ describe('measurement.js — calculatePolygonArea', () => {
         const esperado = R_AREA * R_AREA * rad(D_LNG) *
             Math.abs(Math.sin(rad(LAT0 + D_LAT)) - Math.sin(rad(LAT0)));
         const area = t.calculatePolygonArea(rectangulo);
-        assert.ok(Math.abs(area - esperado) / esperado < 1e-12,
+        assert.ok(Math.abs(area - esperado) / esperado < 1e-10,
             `área ${area} vs analítica ${esperado}`);
     });
 

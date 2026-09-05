@@ -1384,7 +1384,43 @@ body.has-top-bar #toast-container { top: calc(var(--hud-height) + 60px); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* --------------------------------------------------------------------------
-   25. Escritorio / tabletas
+   25. Respaldo y restauración (.zip)
+   -------------------------------------------------------------------------- */
+.checkbox-row.align-top { align-items: flex-start; }
+.backup-note {
+    font-size: var(--fs-2xs);
+    color: var(--text-3);
+    line-height: 1.45;
+}
+.backup-danger {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--danger-strong);
+    background: var(--danger-soft);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: var(--r-md);
+    padding: 8px 10px;
+    margin-bottom: var(--sp-3);
+    line-height: 1.4;
+}
+.backup-log {
+    list-style: none;
+    max-height: 132px;
+    overflow-y: auto;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 8px 10px;
+    margin-bottom: var(--sp-3);
+    font-size: var(--fs-2xs);
+    color: var(--text-2);
+    line-height: 1.5;
+}
+.backup-log li { padding-left: 14px; position: relative; }
+.backup-log li::before { content: "⚠️"; position: absolute; left: 0; font-size: 9px; top: 2px; }
+
+/* --------------------------------------------------------------------------
+   26. Escritorio / tabletas
    -------------------------------------------------------------------------- */
 @media (min-width: 768px) {
     :root { --drawer-width: 420px; --hud-height: calc(54px + var(--safe-top)); }

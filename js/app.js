@@ -17,6 +17,7 @@ import { exportPlacemarksToDocx } from './docx-export.js';
 import { exportUsoUsuariosToExcel, FUENTES_AGUA, RESIDUOS_LIQUIDOS, RESIDUOS_SOLIDOS } from './excel-export.js';
 import { MeasurementTool } from './measurement.js';
 import { TileDownloader } from './tile-downloader.js';
+import { openBackupDialog, openRestoreDialog } from './backup.js';
 
 // ========== APP STATE ==========
 const state = {
@@ -144,6 +145,7 @@ async function initApp() {
         setupModals();
         setupLightbox();
         setupDataReset();
+        setupBackup();
 
         const versionLabel = document.getElementById('app-version-label');
         if (versionLabel) versionLabel.textContent = APP_VERSION;
@@ -2175,6 +2177,53 @@ function setupDataReset() {
             showToast('❌ No se pudieron borrar los datos: ' + (err.message || err));
         }
     });
+}
+
+// ========== RESPALDO Y RESTAURACION ==========
+/**
+ * Cablea los botones de respaldo (.zip) del panel de Ajustes.
+ * La lógica de empaquetado y restauración vive en js/backup.js.
+ */
+function setupBackup() {
+    const btnExport = document.getElementById('btn-backup-export');
+    const btnImport = document.getElementById('btn-backup-import');
+    const inputFile = document.getElementById('input-backup-file');
+
+    if (btnExport) {
+        btnExport.addEventListener('click', () => {
+            openBackupDialog({
+                appVersion: APP_VERSION,
+                projectId: state.currentProjectId,
+                projectName: state.currentProjectName,
+                showToast
+            });
+        });
+    }
+
+    if (btnImport && inputFile) {
+        btnImport.addEventListener('click', () => {
+            inputFile.value = '';
+            inputFile.click();
+        });
+
+        inputFile.addEventListener('change', async () => {
+            const file = inputFile.files && inputFile.files[0];
+            if (!file) return;
+            inputFile.value = '';
+
+            await openRestoreDialog(file, {
+                appVersion: APP_VERSION,
+                showToast,
+                // Tras restaurar se recarga la app: es la forma más segura de
+                // dejar mapa, marcadores y proyecto activo coherentes con la
+                // base recién escrita.
+                onRestored: () => {
+                    showToast('🔄 Recargando con los datos restaurados...');
+                    setTimeout(() => window.location.reload(), 900);
+                }
+            });
+        });
+    }
 }
 
 // ========== TOAST NOTIFICATIONS ==========

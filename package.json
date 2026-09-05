@@ -1,6 +1,6 @@
 {
   "name": "josemaps",
-  "version": "25.0.0",
+  "version": "26.0.0",
   "private": true,
   "description": "JoseMaps - PWA de mapas offline con GPS, GeoPDF y coordenadas MAGNA-SIRGAS para trabajo de campo",
   "type": "module",

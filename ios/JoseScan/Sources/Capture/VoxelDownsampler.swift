@@ -86,9 +86,7 @@ public final class VoxelDownsampler {
         if cambiaArista {
             reconstruir(con: c.tamanoVoxel)
         }
-        while celdas.count > maxPuntos {
-            reconstruir(con: tamanoVoxel * 1.25)
-        }
+        compactarSiSobrepasa()
     }
 
     // MARK: - Inserción
@@ -98,7 +96,6 @@ public final class VoxelDownsampler {
         guard !puntos.isEmpty else { return }
         let conColor = puntos.hasColor
         let conConfianza = puntos.confidences.count == puntos.positions.count
-        celdas.reserveCapacity(celdas.count + puntos.count)
         let inv = 1.0 / tamanoVoxel
         for i in 0..<puntos.positions.count {
             let p = puntos.positions[i]

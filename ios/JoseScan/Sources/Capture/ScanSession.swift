@@ -401,11 +401,11 @@ public enum EstadoEscaneo: String, CaseIterable, Codable {
     nonisolated public static func modeloDispositivo() -> String {
         var info = utsname()
         uname(&info)
-        var identificador = withUnsafePointer(to: &info.machine) { puntero -> String in
-            puntero.withMemoryRebound(to: CChar.self,
-                                      capacity: MemoryLayout.size(ofValue: info.machine)) { cadena in
-                String(cString: cadena)
-            }
+        // Se recorre `machine` con Mirror para no abrir dos accesos exclusivos
+        // simultáneos a `info` (lo que sí ocurre con withUnsafePointer).
+        var identificador = Mirror(reflecting: info.machine).children.reduce(into: "") { texto, hijo in
+            guard let byte = hijo.value as? CChar, byte != 0 else { return }
+            texto.append(Character(UnicodeScalar(UInt8(bitPattern: byte))))
         }
         // En el simulador `machine` es la arquitectura del Mac anfitrión.
         if identificador == "x86_64" || identificador == "arm64" || identificador == "i386" {
@@ -417,7 +417,7 @@ public enum EstadoEscaneo: String, CaseIterable, Codable {
     }
 
     /// Sistema operativo en el formato del contrato: "iOS 18.2".
-    nonisolated public static func versionSistema() -> String {
+    public static func versionSistema() -> String {
         let dispositivo = UIDevice.current
         return "\(dispositivo.systemName) \(dispositivo.systemVersion)"
     }
@@ -432,7 +432,7 @@ public enum EstadoEscaneo: String, CaseIterable, Codable {
 
     /// Orientación con la que hay que presentar `capturedImage`, que ARKit
     /// entrega siempre en horizontal con el botón de inicio a la derecha.
-    nonisolated private static func orientacionImagen() -> UIImage.Orientation {
+    private static func orientacionImagen() -> UIImage.Orientation {
         switch UIDevice.current.orientation {
         case .portrait: return .right
         case .portraitUpsideDown: return .left

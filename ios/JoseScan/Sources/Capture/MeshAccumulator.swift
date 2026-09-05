@@ -14,6 +14,7 @@
 
 import Foundation
 import ARKit
+import Metal
 import simd
 
 public final class MeshAccumulator {
@@ -152,7 +153,10 @@ public final class MeshAccumulator {
             let contenidoCaras = caras.buffer.contents()
             let fuenteClases = geometria.classification
             let clasesUsables = fuenteClases != nil && fuenteClases!.count == caras.count
-            let contenidoClases = clasesUsables ? fuenteClases!.buffer.contents() : nil
+            var contenidoClases: UnsafeMutableRawPointer?
+            if clasesUsables, let fuente = fuenteClases {
+                contenidoClases = fuente.buffer.contents()
+            }
 
             for f in 0..<caras.count {
                 let i0 = MeshAccumulator.indice(contenidoCaras, caras.bytesPerIndex, f * 3)

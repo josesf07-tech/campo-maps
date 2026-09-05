@@ -14,6 +14,10 @@
 //
 //  Debe existir `escaneo.json` y al menos `nube.ply` o `malla.obj`.
 //
+//  El ZIP se escribe con el método **store** (compresión 0) de `ZipArchive`:
+//  es un ZIP estándar sin cifrar, así que `unzip`, `JSZip` en la PWA y el
+//  Finder lo abren igual que uno deflate, sin necesitar librería externa.
+//
 
 import Foundation
 

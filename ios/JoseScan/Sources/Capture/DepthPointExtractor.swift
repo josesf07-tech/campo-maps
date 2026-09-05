@@ -179,7 +179,7 @@ public final class DepthPointExtractor {
 
             var u = 0
             while u < ancho {
-                let d = Float(filaProf[u])
+                let d: Float = filaProf[u]
                 if !d.isFinite || d <= 0.01 || d > distanciaMaxima {
                     u += paso
                     continue

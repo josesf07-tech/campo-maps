@@ -155,8 +155,8 @@ public enum RoomPlanConverter {
                 var transformTecho = piso.transform
                 transformTecho.columns.3.y += Float(altura)
                 agregarSuperficiePlana(transform: transformTecho,
-                                       ancho: piso.dimensions.x,
-                                       alto: piso.dimensions.y,
+                                       ancho: abs(piso.dimensions.x),
+                                       alto: abs(piso.dimensions.y),
                                        clase: .ceiling,
                                        en: &malla)
             }

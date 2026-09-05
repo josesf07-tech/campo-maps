@@ -5,7 +5,10 @@ la PWA JoseMaps (`js/lidar-*.js`). **No modificar sin actualizar ambos lados.**
 
 ## 1. Paquete `.josescan`
 
-Un archivo `.josescan` es un ZIP (sin cifrado, deflate) con esta estructura:
+Un archivo `.josescan` es un ZIP sin cifrado, escrito con el método **store**
+(sin compresión) para que el escritor sea autocontenido y no dependa de zlib. Los
+lectores deben aceptar también entradas `deflate`, que es lo que produce JSZip.
+Estructura:
 
 ```
 escaneo.json        Metadatos (obligatorio)

@@ -32,7 +32,12 @@ public struct RoomCaptureViewContainer: UIViewRepresentable {
         coordinador.registrar(vista: vista)
         // Arranque explícito de la sesión de RoomPlan.
         vista.captureSession.run(configuration: RoomCaptureSession.Configuration())
-        coordinador.marcarSesionIniciada()
+        // El estado publicado se actualiza en el siguiente ciclo para no
+        // modificar un @Published mientras SwiftUI está construyendo la vista.
+        let coordinadorActual = coordinador
+        Task { @MainActor in
+            coordinadorActual.marcarSesionIniciada()
+        }
         return vista
     }
 

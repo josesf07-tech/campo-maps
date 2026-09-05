@@ -905,8 +905,7 @@ export function crearZip(entradas, { tipo = 'application/zip' } = {}) {
         dvc.setUint32(20, datos.length, true);
         dvc.setUint32(24, datos.length, true);
         dvc.setUint16(28, nombreBytes.length, true);
-        dvc.setUint16(42, desplazamiento, true) /* se corrige abajo */;
-        dvc.setUint32(42, desplazamiento, true);
+        dvc.setUint32(42, desplazamiento, true); // desplazamiento del encabezado local
         central.set(nombreBytes, 46);
         centrales.push(central);
 

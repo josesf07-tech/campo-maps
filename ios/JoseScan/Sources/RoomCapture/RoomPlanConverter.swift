@@ -101,7 +101,7 @@ public enum RoomPlanConverter {
             return propuesto.isEmpty ? nombrePorDefecto() : propuesto
         }()
 
-        var metadata = ScanMetadata(nombre: nombreFinal,
+        let metadata = ScanMetadata(nombre: nombreFinal,
                                     dispositivo: identificadorDispositivo(),
                                     sistema: versionSistema(),
                                     sensor: "lidar",
@@ -113,10 +113,8 @@ public enum RoomPlanConverter {
                                     notas: notas(de: room, resumen: resumenSala))
 
         let documento = ScanDocument(metadata: metadata, cloud: PointCloud(frame: .arkit), mesh: malla)
+        // Sincroniza contadores y caja envolvente con la malla recién construida.
         documento.refreshMetadata()
-        // `refreshMetadata()` recalcula el marco a partir de la geometría; si hay
-        // ancla geodésica confiable se conserva la referencia en los metadatos.
-        metadata = documento.metadata
         return documento
     }
 

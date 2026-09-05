@@ -355,7 +355,6 @@ export class ScanViewer {
         lienzo.addEventListener('pointermove', this._hPunteroMueve);
         lienzo.addEventListener('pointerup', this._hPunteroArriba);
         lienzo.addEventListener('pointercancel', this._hPunteroArriba);
-        lienzo.addEventListener('pointerleave', this._hPunteroArriba);
         lienzo.addEventListener('wheel', this._hRueda, { passive: false });
         lienzo.addEventListener('contextmenu', this._hMenu);
         lienzo.addEventListener('webglcontextlost', this._hPerdidaContexto, false);
@@ -563,7 +562,7 @@ export class ScanViewer {
         }
         if (!Number.isFinite(minV)) { minV = 0; maxV = 1; }
 
-        this._datos = { pos, rgb, conf, total, minV, maxV };
+        this._datos = { pos, rgb, conf, total, minV, maxV, eje };
 
         // Geometría: los atributos se reservan completos y, si la nube es grande,
         // se suben a la GPU por trozos con requestAnimationFrame.
@@ -595,7 +594,7 @@ export class ScanViewer {
         this.setModo(this._modo);
 
         if (total > LIMITE_CARGA_PROGRESIVA) {
-            await this._subirPorTrozos(atrPos, atrCol, pos, destinoColor, total, geometria);
+            await this._subirPorTrozos(atrPos, atrCol, pos, total, geometria);
         } else {
             atrPos.array.set(pos.subarray(0, total * 3));
             atrPos.needsUpdate = true;
@@ -614,7 +613,7 @@ export class ScanViewer {
      * uno para que la interfaz siga respondiendo en un celular.
      * @private
      */
-    _subirPorTrozos(atrPos, atrCol, pos, colores, total, geometria) {
+    _subirPorTrozos(atrPos, atrCol, pos, total, geometria) {
         const token = ++this._tokenCarga;
         return new Promise((resolver) => {
             let subidos = 0;
@@ -633,7 +632,6 @@ export class ScanViewer {
                 atrPos.needsUpdate = true;
                 atrCol.needsUpdate = true;
                 geometria.setDrawRange(0, fin);
-                void colores; // ya fueron escritos en el arreglo del atributo
 
                 subidos = fin;
                 this._sucio = true;
@@ -710,7 +708,7 @@ export class ScanViewer {
         const tipo = this._coloreado;
 
         if (tipo === 'altura') {
-            const eje = this._ejeVertical;
+            const eje = Number.isInteger(d.eje) ? d.eje : this._ejeVertical;
             const rango = (d.maxV - d.minV) || 1;
             for (let i = desde; i < hasta; i++) {
                 evaluarRampa((d.pos[i * 3 + eje] - d.minV) / rango, destino, i * 3);
@@ -1562,17 +1560,15 @@ export class ScanViewer {
             lienzo.removeEventListener('pointermove', this._hPunteroMueve);
             lienzo.removeEventListener('pointerup', this._hPunteroArriba);
             lienzo.removeEventListener('pointercancel', this._hPunteroArriba);
-            lienzo.removeEventListener('pointerleave', this._hPunteroArriba);
             lienzo.removeEventListener('wheel', this._hRueda);
             lienzo.removeEventListener('contextmenu', this._hMenu);
             lienzo.removeEventListener('webglcontextlost', this._hPerdidaContexto);
 
             if (this.escena) {
-                const compartidas = new Set();
-                if (this.malla && this.malla.geometry) compartidas.add(this.malla.geometry);
-                this._liberarObjeto(this.escena, null);
-                void compartidas; // traverse ya llama dispose() una sola vez por geometría
-                this.escena.clear ? this.escena.clear() : null;
+                // traverse recorre cada nodo una vez; dispose() repetido sobre una
+                // geometría compartida (malla + alambre) es inofensivo en three.
+                this._liberarObjeto(this.escena);
+                if (typeof this.escena.clear === 'function') this.escena.clear();
             }
 
             this.renderizador.dispose();

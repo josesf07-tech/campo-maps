@@ -175,13 +175,13 @@ distancia máxima 5,0 m; submuestreo de imagen 2; 10 fps de captura.
 
 ### 3.4 `Sources/Geo/` — georreferenciación y medición
 
-| Módulo | Responsabilidad |
-|---|---|
-| `LocationProvider` | envoltura de CoreLocation: posición, precisión y rumbo verdadero |
-| `Georeferencer` | `ObservableObject` compartido por la app (`@StateObject` en `JoseScanApp`); produce el `GeoReference` del ancla y lo publica a la HUD |
-| `GeoTransform` | rotación ARKit → ENU y conversión ENU ↔ WGS84 (apartado 4) |
-| `MagnaSirgas` | proyección WGS84 ↔ MAGNA-SIRGAS Origen Nacional (EPSG:9377), misma definición que `js/coords.js` |
-| `MeasurementEngine` | cálculo de distancias, áreas, volúmenes, alturas y azimutes; produce `MeasurementRecord` |
+| Módulo | Responsabilidad | API pública destacada |
+|---|---|---|
+| `LocationProvider` | envoltura de CoreLocation: posición, precisión y rumbo verdadero | publica la lectura vigente al `Georeferencer` |
+| `Georeferencer` | `ObservableObject` compartido por la app (`@StateObject` en `JoseScanApp`); produce el `GeoReference` del ancla y lo publica a la HUD | observado por `ScanHUDView` |
+| `GeoTransform` | rotación ARKit → ENU y conversión ENU ↔ WGS84 (apartado 4) | `semiejeMayorWGS84`, `achatamientoWGS84`, `excentricidadCuadradaWGS84`; `arkitAEnu(_:rumboGrados:)` para punto, `PointCloud` y `ScanMesh`; `enuAArkit(_:rumboGrados:)`; `enuAWGS84(este:norte:arriba:…)`; `wgs84AEnu(lat:lon:alt:…)`; `radiosDeCurvatura(latitudGrados:)`; `georreferenciar(_: ScanDocument)` |
+| `MagnaSirgas` | proyección WGS84 ↔ MAGNA-SIRGAS Origen Nacional (EPSG:9377), misma definición que `js/coords.js` | `latitudOrigen` (4,0), `meridianoCentral` (−73,0), `factorEscala` (0,9992), `falsoEste` (5 000 000), `falsoNorte` (2 000 000), `codigoEPSG`, `nombre`, `definicionProj4`, elipsoide GRS80 (`achatamiento` 1/298,257222101); `dentroDeRango(lat:lon:)`, `desdeWGS84(lat:lon:)`, `aWGS84(norte:este:)`, `formatear(norte:este:)`, `pareceMagnaSirgas(_:_:)` |
+| `MeasurementEngine` | cálculo de distancias, áreas, volúmenes, alturas y azimutes; produce `MeasurementRecord` | — |
 
 ### 3.5 `Sources/Export/` — escritores
 
@@ -220,9 +220,9 @@ conversión ARKit → ENU se hace antes, en el módulo de georreferenciación.
 |---|---|
 | `js/lidar-scanner.js` | captura con WebXR Depth Sensing (Chrome + ARCore); produce escaneos con `sensor: "webxr"` |
 | `js/lidar-viewer.js` | visor 3D con three.js: nubes de puntos y mallas, órbita, encuadre |
-| `js/lidar-formats.js` | lectura y escritura de PLY (binario y ASCII), OBJ, XYZ, CSV y del paquete `.josescan` |
-| `js/lidar-geo.js` | ENU ↔ WGS84 ↔ MAGNA-SIRGAS (EPSG:9377), generación de la huella GeoJSON y mediciones sobre el escaneo |
-| `js/lidar-store.js` | persistencia en IndexedDB, base `JoseScanDB` |
+| `js/lidar-formats.js` | `FORMATO_ACTUAL`, `MARCOS_VALIDOS`, `ARCHIVOS_PAQUETE`; `parsePLY` / `writePLY`, `parseOBJ` / `writeOBJ`, `writeXYZ`, `writeCSV`, `leerZip` / `crearZip`, `parseScanBundle` / `buildScanBundle`, `validarMetadatos` |
+| `js/lidar-geo.js` | `WGS84_A`, `WGS84_INV_F`, `WGS84_E2`; `boundsDe`, `ejeVertical`, `arkitAEnu`, `enuAWgs84`, `wgs84AEnu`, `scanAGeoJSON`, `scanAMagnaSirgas`, `distancia3D`, `areaPoligono`, `volumenSobreBase`, `resumenGeo` |
+| `js/lidar-store.js` | IndexedDB `SCAN_DB_NAME = 'JoseScanDB'`, `SCAN_DB_VERSION = 1`, almacenes `escaneos` (metadatos) y `geometria` (blobs) |
 | `js/lidar-ui.js` + `css/lidar.css` | panel lateral **Escaneos 3D**, con la misma estética que los paneles existentes (`panel-maps`, `panel-tracks`, `panel-placemarks`, `panel-settings`) |
 
 La conversión a EPSG:9377 en la PWA reutiliza `js/coords.js`

@@ -487,7 +487,9 @@ export function resumenGeo(meta) {
     let magna = null;
     try { magna = scanAMagnaSirgas(meta); } catch (e) { magna = null; }
     if (magna && Number.isFinite(magna.norte) && Number.isFinite(magna.este) && (magna.norte !== 0 || magna.este !== 0)) {
-        partes.push(`N ${Math.round(magna.norte).toLocaleString('es-CO')} E ${Math.round(magna.este).toLocaleString('es-CO')}`);
+        // Se trunca (no se redondea) al metro, como en el ejemplo del contrato:
+        // norte 2067412,55 → "N 2.067.412".
+        partes.push(`N ${Math.trunc(magna.norte).toLocaleString('es-CO')} E ${Math.trunc(magna.este).toLocaleString('es-CO')}`);
     }
 
     return partes.join(' · ');

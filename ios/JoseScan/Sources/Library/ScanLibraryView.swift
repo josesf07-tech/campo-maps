@@ -389,6 +389,11 @@ public struct ScanLibraryView: View {
             .refreshable {
                 store.cargar()
             }
+            .task {
+                // Relee el disco al entrar: así la galería muestra también los
+                // escaneos guardados desde la pantalla de captura.
+                store.cargar()
+            }
             .sheet(isPresented: $mostrarAjustes) {
                 SettingsView(ajustes: ajustes, store: store)
             }

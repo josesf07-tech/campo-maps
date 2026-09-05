@@ -908,7 +908,7 @@ class TransaccionFalsa {
         this._abortada = false;
         this._almacenes = new Map();
         // Una transacción sin ninguna operación también debe completarse.
-        queueMicrotask(() => this._quizaCompletar());
+        setTimeout(() => this._quizaCompletar(), 0);
     }
 
     objectStore(nombre) {
@@ -927,7 +927,12 @@ class TransaccionFalsa {
 
     _liberar() {
         this._pendientes--;
-        queueMicrotask(() => this._quizaCompletar());
+        // IndexedDB despacha `complete` como una *tarea*, no como microtarea: la
+        // transacción sigue viva mientras se drena la cola de microtareas, que es
+        // lo que permite encadenar `await` entre solicitudes. Con `queueMicrotask`
+        // el doble cerraría la transacción antes de que el código bajo prueba
+        // reanudara su `async`, así que aquí se usa `setTimeout(…, 0)`.
+        setTimeout(() => this._quizaCompletar(), 0);
     }
 
     _quizaCompletar() {

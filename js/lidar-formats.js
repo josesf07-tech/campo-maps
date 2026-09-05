@@ -1107,10 +1107,15 @@ export async function buildScanBundle({ meta, nube, malla, miniatura, huella } =
 /* ───────────────────────── Validación de metadatos ───────────────────────── */
 
 /** Verdadero si el valor es una cadena ISO-8601 interpretable. */
+const _RE_FECHA_ISO = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
+
 function _esFechaISO(valor) {
-    if (typeof valor !== 'string' || valor.length < 10) return false;
-    const t = Date.parse(valor);
-    return Number.isFinite(t);
+    if (typeof valor !== 'string') return false;
+    // Date.parse por sí solo acepta formatos locales como "05/09/2026", que el
+    // contrato no admite: primero exigimos la forma ISO-8601 y luego que la
+    // fecha exista de verdad (descarta 2026-13-45).
+    if (!_RE_FECHA_ISO.test(valor)) return false;
+    return Number.isFinite(Date.parse(valor));
 }
 
 /** Verdadero si el valor es un entero finito mayor o igual que cero. */

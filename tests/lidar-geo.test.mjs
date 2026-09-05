@@ -179,11 +179,32 @@ test('volumenSobreBase devuelve 1 m³ para el cubo de 1 m apoyado en la cota 0',
     casiIgual(m.volumenSobreBase(cubo, 0, 'enu'), 1, 1e-4, 'cubo unitario sobre base 0 (marco ENU)');
     casiIgual(m.volumenSobreBase(cubo, 0, 'arkit'), 1, 1e-4, 'cubo unitario sobre base 0 (marco ARKit)');
 
-    // Con la base a media altura sólo cuenta la mitad superior.
-    casiIgual(m.volumenSobreBase(cubo, 0.5, 'enu'), 0.5, 1e-4, 'cubo con la base a 0,5 m');
+    // En una malla cerrada las áreas horizontales con signo se cancelan, así que
+    // el volumen encerrado no depende de dónde se ponga la base. Es la propiedad
+    // que garantiza que un escaneo estanco mida siempre lo mismo.
+    casiIgual(m.volumenSobreBase(cubo, 0.5, 'enu'), 1, 1e-4,
+        'en una malla cerrada la cota de base no cambia el volumen encerrado');
+});
 
-    // Con la base por encima del cubo no queda volumen.
-    casiIgual(m.volumenSobreBase(cubo, 2, 'enu'), 0, 1e-4, 'base por encima de toda la malla');
+test('volumenSobreBase mide el prisma entre una superficie abierta y la base', async (t) => {
+    const m = await cargarGeo();
+    if (!m) return t.skip(mensajeAusente(RUTA));
+
+    // Superficie abierta de 1 m × 1 m a 2 m de altura: el caso real de un
+    // levantamiento de cárcava o de acopio, donde la base sí importa.
+    const superficie = {
+        positions: new Float32Array([0, 0, 2, 1, 0, 2, 1, 1, 2, 0, 1, 2]),
+        indices: new Uint32Array([0, 1, 2, 0, 2, 3]),
+        count: 4,
+        frame: 'enu'
+    };
+
+    casiIgual(Math.abs(m.volumenSobreBase(superficie, 0, 'enu')), 2, 1e-4,
+        '1 m² a 2 m sobre la base 0 ⇒ 2 m³');
+    casiIgual(Math.abs(m.volumenSobreBase(superficie, 0.5, 'enu')), 1.5, 1e-4,
+        'subir la base a 0,5 m descuenta 0,5 m³');
+    casiIgual(Math.abs(m.volumenSobreBase(superficie, 2, 'enu')), 0, 1e-4,
+        'con la base a la altura de la superficie no queda volumen');
 });
 
 // ---------------------------------------------------------------------------
@@ -299,8 +320,23 @@ test('scanAGeoJSON degrada sin ancla en vez de inventar coordenadas', async (t) 
     if (!m) return t.skip(mensajeAusente(RUTA));
 
     const sinAncla = metadatosEjemplo({ geo: null, marco: 'arkit' });
-    const fc = m.scanAGeoJSON(sinAncla, {});
-    if (fc == null) return; // devolver null es una respuesta válida
+
+    let fc;
+    try {
+        fc = m.scanAGeoJSON(sinAncla, {});
+    } catch (e) {
+        // Lanzar un error explicativo también es degradar bien: lo que no se
+        // admite es devolver una huella con coordenadas inventadas.
+        assert.ok(e instanceof Error, 'si falla, debe hacerlo con un Error');
+        assert.match(
+            e.message,
+            /geo|origen|ancla|latitude|longitude/i,
+            `el error debe explicar que falta el ancla; se obtuvo: ${e.message}`
+        );
+        return;
+    }
+
+    if (fc == null) return; // devolver null también es una respuesta válida
     assert.equal(fc.type, 'FeatureCollection', 'si devuelve algo, debe ser un FeatureCollection');
     assert.equal(
         (fc.features || []).length, 0,

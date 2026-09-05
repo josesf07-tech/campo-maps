@@ -450,12 +450,34 @@ test('validarMetadatos rechaza una fecha que no es ISO-8601', async (t) => {
     const m = await modulo();
     if (!m) return t.skip(mensajeAusente(RUTA));
 
-    const r = m.validarMetadatos(metadatosEjemplo({ creado: '05/09/2026 14:22' }));
-    assert.equal(r.valido, false, 'el contrato exige ISO-8601 UTC');
-    assert.ok(
-        r.errores.some((e) => /creado|fecha|iso/i.test(String(e))),
-        `algún error debe mencionar la fecha; se obtuvo ${JSON.stringify(r.errores)}`
+    // docs/FORMATO-ESCANEO.md §2: «Fechas siempre ISO-8601 UTC». No basta con
+    // que Date.parse las entienda: formatos regionales como «05/09/2026» son
+    // ambiguos entre día/mes y mes/día y deben rechazarse.
+    const noISO = [
+        '05/09/2026 14:22',
+        'September 5, 2026',
+        '2026/09/05',
+        '5 de septiembre de 2026'
+    ];
+    const aceptadas = [];
+    for (const creado of noISO) {
+        const r = m.validarMetadatos(metadatosEjemplo({ creado }));
+        if (r.valido) { aceptadas.push(creado); continue; }
+        assert.ok(
+            r.errores.some((e) => /creado|fecha|iso/i.test(String(e))),
+            `algún error debe mencionar la fecha para «${creado}»; se obtuvo ${JSON.stringify(r.errores)}`
+        );
+    }
+    assert.deepEqual(
+        aceptadas, [],
+        'el contrato exige ISO-8601 UTC y estas fechas no lo son, pero fueron aceptadas'
     );
+
+    // Y las formas ISO válidas sí deben pasar.
+    for (const creado of ['2026-09-05T14:22:31Z', '2026-09-05T14:22:31.500Z']) {
+        const r = m.validarMetadatos(metadatosEjemplo({ creado }));
+        assert.equal(r.valido, true, `«${creado}» es ISO-8601 válido; errores: ${JSON.stringify(r.errores)}`);
+    }
 });
 
 test('validarMetadatos rechaza contadores negativos', async (t) => {
@@ -484,7 +506,11 @@ test('buildScanBundle → parseScanBundle conserva metadatos, nube y malla', asy
     const meta = metadatosEjemplo({ puntos: 64, vertices: 8, triangulos: 12 });
     const nube = nubeSintetica(64);
     const malla = cuboUnitario();
-    const miniatura = new Uint8Array([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x01]); // cabecera JPEG falsa
+    // El paquete transporta la miniatura ya codificada: `buildScanBundle` acepta
+    // base64 suelto o un dataURL completo (docs/FORMATO-ESCANEO.md §1).
+    const bytesMiniatura = new Uint8Array([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x01]); // cabecera JPEG falsa
+    const miniatura = 'data:image/jpeg;base64,'
+        + Buffer.from(bytesMiniatura).toString('base64');
 
     let paquete;
     try {

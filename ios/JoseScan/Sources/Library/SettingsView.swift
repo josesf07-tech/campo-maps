@@ -362,7 +362,8 @@ public struct SettingsView: View {
     /// Segunda confirmación: se pide con un pequeño retraso para que la primera
     /// hoja termine de cerrarse antes de mostrar la alerta.
     private func pedirSegundaConfirmacion() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 400_000_000)
             segundaConfirmacion = true
         }
     }

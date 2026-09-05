@@ -233,7 +233,12 @@ test('actualizarMeta aplica un parche sin perder el resto de los metadatos', asy
     assert.equal(meta.nombre, 'Talud K12+520 (revisado)', 'el nombre debe haberse actualizado');
     assert.equal(meta.notas, 'Revisión post-lluvia', 'las notas deben haberse actualizado');
     assert.equal(meta.formato, 'josescan/1.0', 'el parche no debe borrar el formato');
-    assert.equal(meta.creado, ESCANEOS[1].meta.creado, 'el parche no debe tocar la fecha de creación');
+    // El almacén normaliza la fecha a ISO-8601 con milisegundos; lo que debe
+    // conservarse es el instante, no la cadena literal.
+    assert.equal(
+        Date.parse(meta.creado), Date.parse(ESCANEOS[1].meta.creado),
+        'el parche no debe tocar la fecha de creación'
+    );
     assert.equal(meta.dispositivo, ESCANEOS[1].meta.dispositivo, 'el parche no debe borrar el dispositivo');
 
     if (r.nube) {

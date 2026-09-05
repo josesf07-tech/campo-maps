@@ -5,7 +5,7 @@
   "description": "JoseMaps - PWA de mapas offline con GPS, GeoPDF y coordenadas MAGNA-SIRGAS para trabajo de campo",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/",
+    "test": "node --test \"tests/**/*.test.mjs\"",
     "bump": "node scripts/bump-version.mjs",
     "check-version": "node scripts/bump-version.mjs --check"
   },

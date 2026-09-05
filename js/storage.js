@@ -102,6 +102,17 @@ function getAll(storeName) {
     });
 }
 
+function getAllKeys(storeName) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([storeName], 'readonly');
+        const objectStore = transaction.objectStore(storeName);
+        const request = objectStore.getAllKeys();
+
+        request.onsuccess = (e) => resolve(e.target.result || []);
+        request.onerror = (e) => reject(e.target.error);
+    });
+}
+
 function remove(storeName, id) {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([storeName], 'readwrite');
@@ -147,6 +158,40 @@ export function clearAllData() {
         const stores = Array.from(db.objectStoreNames);
         const transaction = db.transaction(stores, 'readwrite');
         stores.forEach((name) => transaction.objectStore(name).clear());
+        transaction.oncomplete = () => resolve(true);
+        transaction.onerror = (e) => reject(e.target.error);
+    });
+}
+
+/**
+ * Nombres de los almacenes y su clave primaria.
+ * Lo usa el módulo de respaldo (backup.js) para recorrer la base sin
+ * depender de los helpers específicos de cada tipo de dato.
+ */
+export const STORE_KEY_PATHS = {
+    projects: 'id',
+    maps: 'id',
+    tracks: 'id',
+    placemarks: 'id',
+    settings: 'key'
+};
+
+export const STORE_NAMES = Object.keys(STORE_KEY_PATHS);
+
+// API genérica por nombre de almacén (respaldo / restauración)
+export const getStoreKeys = (storeName) => getAllKeys(storeName);
+export const getRecord = (storeName, id) => get(storeName, id);
+export const putRecord = (storeName, data) => update(storeName, data);
+export const deleteRecord = (storeName, id) => remove(storeName, id);
+
+/**
+ * Vacía un único almacén (usado por la restauración en modo reemplazar).
+ */
+export function clearStore(storeName) {
+    return new Promise((resolve, reject) => {
+        if (!db) return reject(new Error('Base de datos no inicializada'));
+        const transaction = db.transaction([storeName], 'readwrite');
+        transaction.objectStore(storeName).clear();
         transaction.oncomplete = () => resolve(true);
         transaction.onerror = (e) => reject(e.target.error);
     });

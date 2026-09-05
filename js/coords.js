@@ -31,7 +31,9 @@ export function initCoords() {
  */
 export function toMagnaSirgas(lat, lng) {
     initCoords();
-    if (!window.proj4) {
+    // Guarda con `typeof`: en Node / Web Worker no existe `window` y un acceso
+    // directo lanzaría ReferenceError en vez de usar la rama de respaldo.
+    if (typeof window === 'undefined' || !window.proj4) {
         return {
             norte: 0,
             este: 0,
@@ -63,7 +65,8 @@ export function toMagnaSirgas(lat, lng) {
  */
 export function fromMagnaSirgas(norte, este) {
     initCoords();
-    if (!window.proj4) {
+    // Misma guarda que en toMagnaSirgas: sin `window` no hay motor de proyección.
+    if (typeof window === 'undefined' || !window.proj4) {
         throw new Error("Motor de proyecciones Proj4 no disponible.");
     }
     try {

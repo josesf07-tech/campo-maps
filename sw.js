@@ -9,7 +9,7 @@
 
 // Versión compartida con la página (js/version.js)
 try { importScripts('./js/version.js'); } catch (e) { /* fallback abajo */ }
-const CACHE_VERSION = (typeof self.CAMPOMAPS_VERSION === 'string' && self.CAMPOMAPS_VERSION) ? self.CAMPOMAPS_VERSION : 'v26';
+const CACHE_VERSION = (typeof self.CAMPOMAPS_VERSION === 'string' && self.CAMPOMAPS_VERSION) ? self.CAMPOMAPS_VERSION : 'v27';
 const NETWORK_TIMEOUT_MS = 4000;
 const APP_CACHE_NAME = `campo-maps-${CACHE_VERSION}`;
 // La caché de teselas NO lleva versión: los mapas offline descargados sobreviven a las actualizaciones.
@@ -29,6 +29,18 @@ const PRECACHE_ASSETS = [
   // JavaScript Modules
   './js/version.js',
   './js/app.js',
+  './js/state.js',
+  './js/ui-utils.js',
+  './js/ui-panels.js',
+  './js/ui-gps.js',
+  './js/ui-tracks.js',
+  './js/ui-maps.js',
+  './js/ui-settings.js',
+  './js/ui-photos.js',
+  './js/ui-exports.js',
+  './js/ui-placemarks.js',
+  './js/ui-projects.js',
+  './js/ui-map-controls.js',
   './js/map-engine.js',
   './js/gps-tracker.js',
   './js/storage.js',

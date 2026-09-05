@@ -22,7 +22,8 @@ Contexto de uso y funcionalidades: ver `README.md`.
   `maps`, `tracks`, `placemarks`, `settings`. Las fotos se guardan como data URL dentro del
   marcador. El SW mantiene aparte su propia base `CampoMaps_SW_DB` para metadatos LRU de
   teselas.
-- Estado de la app: un único objeto `state` en `js/app.js`. Comunicación página↔SW por
+- Estado de la app: un único objeto `state` en `js/state.js`, importado por los demás
+  módulos (nunca duplicado ni colgado de `window`). Comunicación página↔SW por
   `postMessage` (`SKIP_WAITING`, `CACHE_TILES`, `CLEAR_TILE_CACHE`, `GET_CACHE_SIZE`).
 - Puentes globales existentes (no eliminar sin revisar los usos):
   `window.CAMPOMAPS_VERSION`, `window.__campoMapsOpenPhoto`, `__campoMapsRenderPhotos`,
@@ -34,7 +35,19 @@ Contexto de uso y funcionalidades: ver `README.md`.
 | Archivo | Responsabilidad |
 | --- | --- |
 | `version.js` | Versión canónica. Script clásico (no módulo) para poder usarse desde la página y desde `importScripts` en el SW. |
-| `app.js` | Orquestador (~2.465 líneas). Cablea toda la interfaz. Secciones marcadas con `// ========== X ==========`: APP STATE, INITIALIZATION, LOAD SAVED DATA, NAVIGATION, PANELS, GPS, TRACKS, PLACEMARKS, CALIBRATION, MAP CONTROLS, SETTINGS, MODALS, BORRADO DE DATOS, TOAST NOTIFICATIONS, PROJECTS MANAGEMENT. |
+| `app.js` | Orquestador delgado (~165 líneas). Crea los motores sobre el `state`, llama a los `setupX()` de los módulos `ui-*` **en un orden que importa** y recarga de IndexedDB lo guardado (`loadSavedData`). No contiene lógica de interfaz. |
+| `state.js` | El objeto `state` compartido y `APP_VERSION`. Un solo ejemplar para toda la app. |
+| `ui-utils.js` | Helpers de interfaz: `escapeHtml`, `showToast`, capa de carga, visor de fotos (lightbox, puente `__campoMapsOpenPhoto`), iconos SVG `ICONS`/`PM_ICON_MAP`, `emptyState`. |
+| `ui-panels.js` | Navegación inferior, apertura/cierre de los cuatro paneles laterales y cierre genérico de modales. |
+| `ui-gps.js` | Botones de GPS y centrado rápido, arranque/parada del seguimiento y barra superior con posición, altura y precisión. |
+| `ui-tracks.js` | Grabación de rutas (iniciar/reanudar/detener), estadísticas y lista del panel de rutas. |
+| `ui-placemarks.js` | Alta de marcador (botón flotante y pulsación larga), selector de icono, ficha de censo Uso y Usuarios (chips y acordeón, puente `__campoMapsUpdateBadges`) y lista filtrada por proyecto. |
+| `ui-photos.js` | Fotos del marcador: rejilla de miniaturas, cámara interna de ráfaga con estampado técnico, cámara nativa y galería. Puentes `__campoMapsRenderPhotos`, `__campoMapsClearPhotos`, `__campoMapsGetPhotos`. |
+| `ui-exports.js` | Exportación del proyecto activo a KMZ + Word + Excel, con el filtro por proyecto de `getActivePlacemarks()`. |
+| `ui-maps.js` | Modal de calibración de planos (GeoPDF, puntos de control, encaje sobre GPS) y lista del panel de mapas con opacidad y borrado. |
+| `ui-map-controls.js` | Zoom, brújula, mira con coordenadas en vivo, medición, cambio de capa base y descarga de teselas. |
+| `ui-settings.js` | Panel de Ajustes: interruptores (puente `__campoMapsSaveSetting`), borrado total de datos locales y botones de respaldo/restauración. |
+| `ui-projects.js` | Proyectos: alta, cambio de proyecto activo (`switchProject`) y lista del modal. |
 | `storage.js` | IndexedDB: apertura/migración, CRUD genérico y atajos por almacén, `generateUUID`, `requestPersistentStorage`, `clearAllData`. |
 | `map-engine.js` | Leaflet: `BASE_LAYERS` (Google Híbrido, Esri, OSM, OpenTopoMap), cambio de capa, `buildTileUrl`, overlays de imagen para planos, marcador GPS con rumbo, líneas de ruta, clic y pulsación larga. |
 | `gps-tracker.js` | `navigator.geolocation` + brújula: suavizado ponderado por precisión, intervalo mínimo, suscriptores, `getAveragedPosition`, reconstrucción de rumbo desde la matriz de rotación, mensajes de error. |

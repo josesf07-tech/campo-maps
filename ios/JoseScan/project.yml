@@ -1,0 +1,124 @@
+# ---------------------------------------------------------------------------
+# JoseScan · especificación de proyecto para XcodeGen
+#
+# Uso (desde ios/JoseScan/):
+#   xcodegen generate
+#   open JoseScan.xcodeproj
+#
+# El .xcodeproj es un artefacto generado: no se versiona (ver ios/.gitignore).
+# Las pruebas unitarias viven FUERA de esta carpeta, en ios/JoseScanTests/,
+# por eso el target de pruebas apunta a ../JoseScanTests.
+# ---------------------------------------------------------------------------
+
+name: JoseScan
+
+options:
+  bundleIdPrefix: com.josemaps
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  developmentLanguage: es
+  minimumXcodeGenVersion: "2.35.0"
+
+attributes:
+  ORGANIZATIONNAME: JoseMaps
+
+# Ajustes comunes a todos los targets.
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    MARKETING_VERSION: "1.0"          # CFBundleShortVersionString
+    CURRENT_PROJECT_VERSION: "1"      # CFBundleVersion
+    TARGETED_DEVICE_FAMILY: "1,2"     # 1 = iPhone, 2 = iPad
+    ENABLE_BITCODE: NO
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_EMIT_LOC_STRINGS: YES
+    CLANG_ENABLE_MODULES: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+  configs:
+    Debug:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+      SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+      GCC_OPTIMIZATION_LEVEL: "0"
+    Release:
+      SWIFT_COMPILATION_MODE: wholemodule
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
+      VALIDATE_PRODUCT: YES
+
+configs:
+  Debug: debug
+  Release: release
+
+targets:
+
+  # -------------------------------------------------------------------------
+  # Aplicación
+  # -------------------------------------------------------------------------
+  JoseScan:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      # El Info.plist se referencia con INFOPLIST_FILE; se excluye de las
+      # fases de compilación para que no se copie también como recurso.
+      - path: App
+        name: App
+        excludes:
+          - "Info.plist"
+      - path: Sources
+        name: Sources
+    settings:
+      base:
+        PRODUCT_NAME: JoseScan
+        PRODUCT_BUNDLE_IDENTIFIER: com.josemaps.josescan
+        INFOPLIST_FILE: App/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+        # Orientaciones admitidas (portrait + landscape). El Info.plist es la
+        # fuente autoritativa; estas claves quedan documentadas aquí también.
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+
+  # -------------------------------------------------------------------------
+  # Pruebas unitarias (ios/JoseScanTests/)
+  # -------------------------------------------------------------------------
+  JoseScanTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: ../JoseScanTests
+        name: JoseScanTests
+        optional: true
+    dependencies:
+      - target: JoseScan
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.josemaps.josescan.tests
+        GENERATE_INFOPLIST_FILE: YES
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/JoseScan.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/JoseScan"
+
+schemes:
+  JoseScan:
+    build:
+      targets:
+        JoseScan: all
+        JoseScanTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - JoseScanTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

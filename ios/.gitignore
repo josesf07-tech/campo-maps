@@ -1,0 +1,44 @@
+# ---------------------------------------------------------------------------
+# JoseScan (app iOS) · artefactos de Xcode que NO se versionan
+# El proyecto se genera con XcodeGen: `cd ios/JoseScan && xcodegen generate`.
+# La fuente de verdad es project.yml, no el .xcodeproj.
+# ---------------------------------------------------------------------------
+
+# Proyecto y espacio de trabajo generados
+*.xcodeproj/
+*.xcworkspace/
+
+# Compilación
+build/
+DerivedData/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.xcarchive/
+*.xcresult/
+
+# Preferencias por usuario
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Sistema de compilación / caché de Swift
+.swiftpm/
+.build/
+Packages/
+*.playground/timeline.xctimeline
+
+# CocoaPods (por si algún día se usan)
+Pods/
+
+# Perfiles y firmas
+*.mobileprovision
+*.provisionprofile
+*.p12
+*.cer
+
+# macOS
+.DS_Store

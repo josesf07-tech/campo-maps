@@ -42,6 +42,15 @@ const PRECACHE_ASSETS = [
   './js/measurement.js',
   './js/tile-downloader.js',
 
+  // JoseScan — módulo de escaneos 3D LiDAR
+  './js/lidar-formats.js',
+  './js/lidar-geo.js',
+  './js/lidar-store.js',
+  './js/lidar-scanner.js',
+  './js/lidar-viewer.js',
+  './js/lidar-ui.js',
+  './css/lidar.css',
+
   // PWA Icons
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',

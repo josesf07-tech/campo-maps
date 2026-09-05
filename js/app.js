@@ -144,6 +144,7 @@ async function initApp() {
         setupModals();
         setupLightbox();
         setupDataReset();
+        setupLidarBridge();
 
         const versionLabel = document.getElementById('app-version-label');
         if (versionLabel) versionLabel.textContent = APP_VERSION;
@@ -2462,4 +2463,90 @@ async function updateProjectsList() {
             }
         });
     });
+}
+
+
+// ========== PUENTE CON JOSESCAN (escaneos 3D LiDAR) ==========
+/**
+ * Expone un puente mínimo y estable para el módulo de escaneos 3D
+ * (js/lidar-ui.js). El módulo funciona igual si este puente no existe, así que
+ * aquí sólo publicamos lo que la app ya sabe hacer: avisar, decir en qué
+ * proyecto estamos y dibujar la huella de un escaneo sobre el mapa.
+ */
+function setupLidarBridge() {
+    if (!window.L || !state.mapEngine || !state.mapEngine.map) return;
+
+    const capaHuellas = window.L.layerGroup().addTo(state.mapEngine.map);
+    const huellas = new Map();
+
+    window.JoseMapsBridge = {
+        /** Nombre del proyecto activo, para etiquetar los escaneos. */
+        proyectoActual() {
+            return state.currentProjectName || 'Proyecto General';
+        },
+
+        /** Reutiliza el sistema de avisos de JoseMaps. */
+        toast(mensaje, tipo) {
+            const prefijos = { error: '❌ ', aviso: '⚠️ ', info: '📡 ', exito: '✅ ' };
+            showToast((prefijos[tipo] || '') + String(mensaje || ''));
+        },
+
+        /**
+         * Dibuja (o redibuja) la huella georreferenciada de un escaneo.
+         * @param {object} geojson FeatureCollection según docs/FORMATO-ESCANEO.md §6
+         * @param {object} meta Metadatos del escaneo (formato josescan/1.0)
+         * @returns {boolean} true si se pudo dibujar
+         */
+        agregarHuellaEscaneo(geojson, meta) {
+            if (!geojson) return false;
+            const id = (meta && meta.id) || (geojson.features && geojson.features[0] &&
+                geojson.features[0].properties && geojson.features[0].properties.id);
+            if (id && huellas.has(id)) {
+                capaHuellas.removeLayer(huellas.get(id));
+                huellas.delete(id);
+            }
+            try {
+                const nombre = (meta && meta.nombre) || 'Escaneo 3D';
+                const capa = window.L.geoJSON(geojson, {
+                    style: { color: '#38bdf8', weight: 2, fillColor: '#38bdf8', fillOpacity: 0.18 },
+                    pointToLayer: (feature, latlng) => window.L.circleMarker(latlng, {
+                        radius: 7, color: '#10b981', weight: 2, fillColor: '#10b981', fillOpacity: 0.9
+                    })
+                });
+                const puntos = (meta && Number(meta.puntos)) || 0;
+                const triangulos = (meta && Number(meta.triangulos)) || 0;
+                capa.bindPopup(
+                    '<strong>' + escapeHtml(nombre) + '</strong><br>' +
+                    puntos.toLocaleString('es-CO') + ' puntos · ' +
+                    triangulos.toLocaleString('es-CO') + ' triángulos'
+                );
+                capa.addTo(capaHuellas);
+                if (id) huellas.set(id, capa);
+                const limites = capa.getBounds();
+                if (limites && limites.isValid()) {
+                    state.mapEngine.map.fitBounds(limites, { maxZoom: 19, padding: [40, 40] });
+                }
+                return true;
+            } catch (e) {
+                console.warn('No se pudo dibujar la huella del escaneo:', e);
+                return false;
+            }
+        },
+
+        /** Quita la huella de un escaneo del mapa. */
+        quitarHuellaEscaneo(id) {
+            if (!huellas.has(id)) return false;
+            capaHuellas.removeLayer(huellas.get(id));
+            huellas.delete(id);
+            return true;
+        },
+
+        /** Quita todas las huellas dibujadas. */
+        limpiarHuellas() {
+            capaHuellas.clearLayers();
+            huellas.clear();
+        }
+    };
+
+    document.dispatchEvent(new CustomEvent('josemaps:puente-listo'));
 }

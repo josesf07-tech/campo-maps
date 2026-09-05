@@ -1,0 +1,13 @@
+{
+  "motor": "claude-hoja",
+  "esfuerzo_claude": "medium",
+  "umbral_confianza": 0.65,
+  "umbral_padron_auto": 0.90,
+  "umbral_padron_sugerencia": 0.72,
+  "cobertura_linea_h": 0.35,
+  "cobertura_linea_v": 0.30,
+  "umbral_marca_bajo": 0.012,
+  "umbral_marca_alto": 0.045,
+  "formato_nombre": "titulo",
+  "fila_encabezado": "auto"
+}

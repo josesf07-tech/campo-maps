@@ -79,9 +79,6 @@
 /* --------------------------------------------------------------------------
    3. Panel lateral
    -------------------------------------------------------------------------- */
-#panel-lidar {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-}
 #panel-lidar .lidar-seccion { display: block; }
 #panel-lidar .lidar-seccion + .lidar-seccion { margin-top: 4px; }
 

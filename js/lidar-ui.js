@@ -46,6 +46,7 @@ const S = {
     boton: null,
     escaneos: [],
     cargandoGaleria: false,
+    observador: null,
     urlsMiniatura: [],
     // Captura
     captura: null,
@@ -179,6 +180,7 @@ function proyectoActual() {
 function textoError(err) {
     if (!err) return 'Error desconocido.';
     if (typeof err === 'string') return err;
+    if (err.mensaje) return String(err.mensaje) + (err.detalle ? ' (' + err.detalle + ')' : '');
     if (err.message) return String(err.message);
     return String(err);
 }
@@ -352,11 +354,21 @@ function cuotaDe(resultado) {
     return 0;
 }
 
+/** true si el escaneo trae un origen WGS84 utilizable. */
+function tieneGeo(meta) {
+    const g = meta && meta.geo;
+    return !!(g && Number.isFinite(Number(g.latitude)) && Number.isFinite(Number(g.longitude)));
+}
+
 /** Texto corto de georreferenciación a partir de `resumenGeo`. */
 function textoGeo(meta) {
+    if (!tieneGeo(meta)) return null;
     try {
         const r = resumenGeo(meta);
-        if (typeof r === 'string') return r.trim() || null;
+        if (typeof r === 'string') {
+            const t = r.trim();
+            return (!t || /^sin\s+georreferencia/i.test(t)) ? null : t;
+        }
         if (r && typeof r === 'object') {
             for (const k of ['texto', 'resumen', 'etiqueta', 'descripcion', 'label']) {
                 if (typeof r[k] === 'string' && r[k].trim()) return r[k].trim();
@@ -714,7 +726,7 @@ function seccionAlmacenamiento() {
                 el('span', { class: 'card-title' }, [icono('disco', 13, 2.2), 'Espacio usado']),
                 el('span', { id: 'lidar-espacio-texto', class: 'lidar-espacio-valor', text: 'Calculando…' })
             ]),
-            el('div', { class: 'card-text', text: 'Espacio ocupado por las nubes de puntos en este dispositivo.' })
+            el('div', { id: 'lidar-espacio-detalle', class: 'card-text', text: 'Espacio ocupado por las nubes de puntos en este dispositivo.' })
         ]),
         el('button', {
             type: 'button',
@@ -762,7 +774,10 @@ async function pintarEstadoSensor() {
                 'Para capturar con LiDAR usa la app nativa JoseScan y luego trae el archivo .josescan a este panel con "Importar".',
             enlace: { texto: 'Ver instrucciones de escaneo', href: S.opciones.docsGuia || RUTA_GUIA }
         }));
-        cont.appendChild(el('div', { class: 'lidar-nota', text: 'Ver, medir y exportar los escaneos importados sí funciona en este iPhone o iPad.' }));
+        cont.appendChild(el('div', {
+            class: 'lidar-nota',
+            text: 'Ver, medir y exportar los escaneos importados sí funciona en este iPhone o iPad.'
+        }));
         return;
     }
 
@@ -785,7 +800,8 @@ async function pintarEstadoSensor() {
             icono: 'check',
             titulo: 'Dispositivo compatible',
             texto: 'Este equipo puede escanear en 3D desde el navegador' +
-                (detalles.length ? ' (' + detalles.join(', ') + ').' : '.')
+                (detalles.length ? ' (' + detalles.join(', ') + ').' : '.'),
+            pie: caps.motivo || null
         }));
 
         const sec = document.getElementById('lidar-sec-escanear');
@@ -802,7 +818,8 @@ async function pintarEstadoSensor() {
             }, [icono('cubo', 22), 'Escanear ahora']));
             sec.appendChild(el('div', {
                 class: 'lidar-nota',
-                text: 'Mueve el equipo despacio alrededor del objeto. Mantén de 1 a 4 metros de distancia para una nube limpia.'
+                text: caps.recomendacion ||
+                    'Mueve el equipo despacio alrededor del objeto. Mantén de 1 a 4 metros de distancia para una nube limpia.'
             }));
         }
         return;
@@ -928,7 +945,7 @@ async function refrescarGaleria() {
 
     let lista = [];
     try {
-        const r = await listarEscaneos({ orden: 'creado', descendente: true });
+        const r = await listarEscaneos({ orden: 'fecha' });
         lista = listaDe(r);
     } catch (err) {
         cont.textContent = '';
@@ -938,6 +955,10 @@ async function refrescarGaleria() {
     }
 
     S.escaneos = lista;
+    if (S.observador) {
+        try { S.observador.disconnect(); } catch (_e) { /* ya desconectado */ }
+        S.observador = null;
+    }
     revocarMiniaturas();
     cont.textContent = '';
 
@@ -963,16 +984,63 @@ async function refrescarGaleria() {
     S.cargandoGaleria = false;
 }
 
+/**
+ * Carga la miniatura sólo cuando la tarjeta entra en pantalla: el listado del
+ * almacén trae metadatos, no imágenes, y leer la geometría de todos los
+ * escaneos de golpe bloquearía la interfaz.
+ */
+function observarMiniatura(nodo) {
+    if (typeof IntersectionObserver === 'undefined') {
+        cargarMiniatura(nodo);
+        return;
+    }
+    if (!S.observador) {
+        S.observador = new IntersectionObserver((entradas, obs) => {
+            for (const entrada of entradas) {
+                if (!entrada.isIntersecting) continue;
+                obs.unobserve(entrada.target);
+                cargarMiniatura(entrada.target);
+            }
+        }, { rootMargin: '250px' });
+    }
+    S.observador.observe(nodo);
+}
+
+async function cargarMiniatura(nodo) {
+    const id = nodo && nodo.dataset ? nodo.dataset.id : '';
+    if (!id) return;
+    try {
+        const registro = await obtenerEscaneo(id, { crudo: true });
+        const fuente = urlMiniatura(registro && registro.miniatura);
+        if (!fuente || !nodo.isConnected) return;
+        const img = el('img', {
+            src: fuente,
+            alt: 'Miniatura de ' + (nodo.dataset.nombre || 'escaneo'),
+            loading: 'lazy',
+            decoding: 'async'
+        });
+        nodo.textContent = '';
+        nodo.appendChild(img);
+    } catch (err) {
+        console.warn('[JoseScan] No se pudo cargar la miniatura:', err);
+    }
+}
+
 function tarjetaEscaneo(meta) {
     const id = idDe(meta);
     const nombre = meta.nombre || 'Escaneo sin nombre';
-    const miniatura = urlMiniatura(meta.miniatura || meta.thumbnail || meta.miniaturaBlob);
+    const inmediata = urlMiniatura(meta.miniatura || meta.thumbnail);
 
     const medios = el('div', { class: 'lidar-card-medios' }, [
-        miniatura
-            ? el('img', { src: miniatura, alt: 'Miniatura de ' + nombre, loading: 'lazy', decoding: 'async' })
+        inmediata
+            ? el('img', { src: inmediata, alt: 'Miniatura de ' + nombre, loading: 'lazy', decoding: 'async' })
             : el('div', { class: 'lidar-card-sinfoto', 'aria-hidden': 'true' }, [icono('cubo', 26, 1.6)])
     ]);
+    if (!inmediata && id && meta.archivoMiniatura) {
+        medios.dataset.id = id;
+        medios.dataset.nombre = nombre;
+        observarMiniatura(medios);
+    }
 
     const datos = [];
     if (Number(meta.puntos) > 0) datos.push(fmtEntero(meta.puntos) + ' puntos');
@@ -1039,10 +1107,18 @@ async function refrescarEspacio() {
     try {
         const r = await espacioUsado();
         const bytes = bytesDe(r);
-        const cuota = cuotaDe(r);
-        nodo.textContent = cuota > 0
-            ? fmtBytes(bytes) + ' de ' + fmtBytes(cuota)
-            : fmtBytes(bytes);
+        nodo.textContent = fmtBytes(bytes);
+
+        const detalle = document.getElementById('lidar-espacio-detalle');
+        if (detalle) {
+            const partes = [];
+            const cuantos = r && Number(r.escaneos);
+            if (Number.isFinite(cuantos)) partes.push(cuantos === 1 ? '1 escaneo guardado' : fmtEntero(cuantos) + ' escaneos guardados');
+            const libre = r && Number(r.disponible);
+            if (Number.isFinite(libre) && libre > 0) partes.push('libres ' + fmtBytes(libre));
+            else if (cuotaDe(r) > 0) partes.push('cuota ' + fmtBytes(cuotaDe(r)));
+            detalle.textContent = partes.join(' · ') || 'Espacio ocupado por las nubes de puntos en este dispositivo.';
+        }
     } catch (err) {
         nodo.textContent = 'No disponible';
         console.warn('[JoseScan] No se pudo calcular el espacio usado:', err);
@@ -1071,15 +1147,15 @@ async function exportarTodoLosEscaneos() {
    -------------------------------------------------------------------------- */
 
 async function verEnElMapa(meta) {
-    let geojson = null;
-    try {
-        geojson = scanAGeoJSON(meta, { incluirHuella: true });
-    } catch (err) {
-        aviso('No se pudo generar la huella: ' + textoError(err), 'error');
+    if (!tieneGeo(meta)) {
+        aviso('Este escaneo no tiene coordenadas para ubicarlo en el mapa.', 'warn');
         return;
     }
-    if (!geojson) {
-        aviso('Este escaneo no tiene coordenadas para ubicarlo en el mapa.', 'warn');
+    let geojson = null;
+    try {
+        geojson = scanAGeoJSON(meta, { bbox: meta.bbox || null });
+    } catch (err) {
+        aviso('No se pudo generar la huella: ' + textoError(err), 'error');
         return;
     }
 
@@ -1308,7 +1384,7 @@ async function exportarEscaneo(id, metaBase, formatos, estado) {
             let blob = null;
             if (f.clave === 'ply') {
                 if (!nube) throw new Error('este escaneo no tiene nube de puntos');
-                blob = aBlob(writePLY(nube, { binario: true, marco: meta.marco }), f.mime);
+                blob = aBlob(writePLY(nube, { binario: true }), f.mime);
             } else if (f.clave === 'obj') {
                 if (!malla) throw new Error('este escaneo no tiene malla');
                 blob = aBlob(writeOBJ(malla), f.mime);
@@ -1317,13 +1393,23 @@ async function exportarEscaneo(id, metaBase, formatos, estado) {
                 blob = aBlob(writeXYZ(nube), f.mime);
             } else if (f.clave === 'csv') {
                 if (!nube) throw new Error('este escaneo no tiene nube de puntos');
-                blob = aBlob(writeCSV(nube, { separador: ';', decimales: 3 }), f.mime);
+                blob = aBlob(writeCSV(nube, { limite: 0 }), f.mime);   // 0 = todos los puntos
             } else if (f.clave === 'geojson') {
-                const gj = scanAGeoJSON(meta, { incluirHuella: true });
-                if (!gj) throw new Error('el escaneo no está georreferenciado');
+                if (!tieneGeo(meta)) throw new Error('el escaneo no está georreferenciado');
+                const gj = scanAGeoJSON(meta, { bbox: meta.bbox || null });
                 blob = new Blob([JSON.stringify(gj, null, 2)], { type: f.mime });
             } else if (f.clave === 'josescan') {
-                blob = aBlob(await buildScanBundle({ meta, nube, malla, miniatura: meta.miniatura }), f.mime);
+                let huella = null;
+                if (tieneGeo(meta)) {
+                    try { huella = scanAGeoJSON(meta, { bbox: meta.bbox || null }); } catch (_e) { huella = null; }
+                }
+                blob = aBlob(await buildScanBundle({
+                    meta,
+                    nube,
+                    malla,
+                    miniatura: (registro && registro.miniatura) || null,
+                    huella
+                }), f.mime);
             }
             if (!blob) throw new Error('no se generó contenido');
             await descargar(blob, nombreArchivo(base, f.ext));
@@ -1445,10 +1531,10 @@ async function abrirCaptura() {
 
     const lienzo = document.getElementById('lidar-captura-lienzo');
     try {
+        const proyecto = proyectoActual();
         S.scanner = new LidarScanner({
-            resolucion: 'media',
-            color: true,
-            confianza: true
+            nombre: 'Escaneo web ' + fmtFecha(new Date()),
+            proyecto: proyecto || undefined
         });
 
         S.scanner.on('estado', (e) => {
@@ -1456,8 +1542,13 @@ async function abrirCaptura() {
             if (texto) estadoCaptura(texto);
         });
         S.scanner.on('puntos', (e) => {
-            const n = typeof e === 'number' ? e : (e && (e.conteo ?? e.total ?? e.puntos));
+            const n = typeof e === 'number' ? e : (e && (e.count ?? e.conteo ?? e.puntos));
             contadorCaptura(Number.isFinite(Number(n)) ? Number(n) : (S.scanner ? S.scanner.conteo : 0));
+            const fps = e && Number(e.fps);
+            if (Number.isFinite(fps) && fps > 0) {
+                const nodo = document.getElementById('lidar-hud-fps');
+                if (nodo) nodo.textContent = String(Math.round(fps));
+            }
         });
         S.scanner.on('error', (e) => {
             aviso('Error del escáner: ' + textoError(e), 'error');
@@ -1532,23 +1623,24 @@ async function finalizarCaptura() {
     let nube = null;
     let meta = null;
     try {
-        await S.scanner.detener();
+        const resultado = await S.scanner.detener();
         S.scannerActivo = false;
-        nube = S.scanner.obtenerNube();
-        meta = S.scanner.obtenerMetadatos() || {};
+        nube = (resultado && resultado.nube) || S.scanner.obtenerNube();
+        meta = (resultado && resultado.metadatos) || S.scanner.obtenerMetadatos() || {};
     } catch (err) {
         aviso('No se pudo cerrar el sensor: ' + textoError(err), 'error');
     }
 
     try {
-        if (!nube) throw new Error('el escaneo quedó vacío');
+        if (!nube || !nube.count) throw new Error('el escaneo quedó vacío');
         const proyecto = proyectoActual();
         const nombre = meta.nombre || ('Escaneo ' + fmtFecha(new Date()));
         await guardarEscaneo({
-            meta: Object.assign({}, meta, { nombre, proyecto: meta.proyecto || proyecto || undefined }),
-            nube,
-            nombre,
-            proyecto: proyecto || undefined
+            meta: Object.assign({}, meta, {
+                nombre,
+                proyecto: meta.proyecto || proyecto || undefined
+            }),
+            nube
         });
         aviso('Escaneo guardado.', 'exito');
     } catch (err) {
@@ -1745,9 +1837,8 @@ async function abrirVisor(id, metaBase) {
         const contenedor = document.getElementById('lidar-visor-lienzo');
         contenedor.textContent = '';
         S.viewer = new modulo.ScanViewer(contenedor, {
-            fondo: 'oscuro',
             tamanoPunto: 2,
-            ejes: true
+            modo: 'puntos'
         });
 
         if (nube) await S.viewer.cargarNube(nube);
@@ -1757,9 +1848,7 @@ async function abrirVisor(id, metaBase) {
         try { S.viewer.setModo(malla && !nube ? 'malla' : 'puntos'); } catch (_e) { /* modo por defecto */ }
         try { S.viewer.encuadrar(); } catch (_e) { /* encuadre por defecto */ }
 
-        for (const ev of ['medicion', 'mediciones', 'cambio']) {
-            try { S.viewer.on(ev, () => pintarMediciones()); } catch (_e) { /* evento no soportado */ }
-        }
+        try { S.viewer.on('medicion', () => pintarMediciones()); } catch (_e) { /* sin evento medicion */ }
         try { S.viewer.on('error', (e) => aviso('Visor: ' + textoError(e), 'error')); } catch (_e) { /* sin evento error */ }
 
         window.addEventListener('resize', alRedimensionarVisor);

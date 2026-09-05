@@ -161,11 +161,17 @@ enum OrdenBiblioteca: String, CaseIterable, Identifiable {
 /// Miniatura del escaneo leída del disco fuera del hilo principal.
 @MainActor
 struct BibliotecaMiniatura: View {
-    @ObservedObject var store: ScanStore
-    let id: UUID
-    var alto: CGFloat = 112
+    @ObservedObject private var store: ScanStore
+    private let id: UUID
+    private let alto: CGFloat
 
     @State private var imagen: UIImage?
+
+    init(store: ScanStore, id: UUID, alto: CGFloat = 112) {
+        _store = ObservedObject(wrappedValue: store)
+        self.id = id
+        self.alto = alto
+    }
 
     var body: some View {
         ZStack {
@@ -192,9 +198,15 @@ struct BibliotecaMiniatura: View {
 
 /// Etiqueta compacta de color (georreferenciado, malla, proyecto…).
 struct BibliotecaChip: View {
-    let texto: String
-    let icono: String
-    let color: Color
+    private let texto: String
+    private let icono: String
+    private let color: Color
+
+    init(texto: String, icono: String, color: Color) {
+        self.texto = texto
+        self.icono = icono
+        self.color = color
+    }
 
     var body: some View {
         HStack(spacing: 3) {
@@ -215,8 +227,13 @@ struct BibliotecaChip: View {
 /// Tarjeta de la grilla.
 @MainActor
 struct BibliotecaTarjeta: View {
-    @ObservedObject var store: ScanStore
-    let meta: ScanMetadata
+    @ObservedObject private var store: ScanStore
+    private let meta: ScanMetadata
+
+    init(store: ScanStore, meta: ScanMetadata) {
+        _store = ObservedObject(wrappedValue: store)
+        self.meta = meta
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -256,8 +273,13 @@ struct BibliotecaTarjeta: View {
 /// Fila de la lista.
 @MainActor
 struct BibliotecaFila: View {
-    @ObservedObject var store: ScanStore
-    let meta: ScanMetadata
+    @ObservedObject private var store: ScanStore
+    private let meta: ScanMetadata
+
+    init(store: ScanStore, meta: ScanMetadata) {
+        _store = ObservedObject(wrappedValue: store)
+        self.meta = meta
+    }
 
     var body: some View {
         HStack(spacing: 12) {

@@ -406,6 +406,7 @@ public struct ScanDetailView: View {
             nombre = actualizado.nombre
             proyecto = actualizado.proyecto ?? ""
             notas = actualizado.notas ?? ""
+            mensajeExito = "Los datos del escaneo quedaron guardados en el dispositivo"
         } catch {
             mensajeError = error.localizedDescription
         }

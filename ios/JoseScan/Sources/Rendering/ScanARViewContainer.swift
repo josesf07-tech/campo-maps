@@ -134,8 +134,17 @@ public struct ScanARViewContainer: UIViewRepresentable {
         /// Modo de dibujo vigente. Se lee desde el hilo de render, por eso el
         /// acceso va protegido por `candado`.
         fileprivate var modo: ModoVisualizacion {
-            get { candado.lock(); defer { candado.unlock() }; return modoInterno }
-            set { candado.lock(); modoInterno = newValue; candado.unlock() }
+            get {
+                candado.lock()
+                let valor = modoInterno
+                candado.unlock()
+                return valor
+            }
+            set {
+                candado.lock()
+                modoInterno = newValue
+                candado.unlock()
+            }
         }
 
         private var modoInterno: ModoVisualizacion

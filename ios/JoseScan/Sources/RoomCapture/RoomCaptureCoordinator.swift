@@ -96,6 +96,13 @@ public final class RoomCaptureCoordinator: NSObject, ObservableObject,
             return
         }
         guard !capturando else { return }
+        vista.captureSession.run(configuration: RoomCaptureSession.Configuration())
+        marcarSesionIniciada()
+    }
+
+    /// Pone el estado publicado en "capturando". La usa el contenedor cuando es
+    /// él quien arranca la sesión al crear la vista.
+    public func marcarSesionIniciada() {
         error = nil
         resultado = nil
         procesando = false
@@ -105,7 +112,6 @@ public final class RoomCaptureCoordinator: NSObject, ObservableObject,
         duracionSegundos = 0
         capturando = true
         estado = "Apunta a una pared y comienza a recorrer el interior"
-        vista.captureSession.run(configuration: RoomCaptureSession.Configuration())
     }
 
     /// Detiene la sesión; RoomPlan procesará la habitación y avisará por el delegado.

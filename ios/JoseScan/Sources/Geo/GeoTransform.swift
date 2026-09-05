@@ -218,7 +218,7 @@ public enum GeoTransform {
 
         // Las mediciones guardadas están expresadas en el marco anterior:
         // se rotan para que sigan coincidiendo con la geometría.
-        if !doc.metadata.mediciones.isEmpty {
+        if doc.metadata.marco == .arkit && !doc.metadata.mediciones.isEmpty {
             doc.metadata.mediciones = doc.metadata.mediciones.map { registro in
                 var copia = registro
                 copia.points = registro.points.map { componentes -> [Float] in

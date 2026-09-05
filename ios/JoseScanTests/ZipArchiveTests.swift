@@ -58,7 +58,10 @@ final class ZipArchiveTests: XCTestCase {
     func testElZipEmpiezaPorLaFirmaDeCabeceraLocal() throws {
         let datos = try ZipArchive.crear(entradas: entradasDeReferencia())
         let b = Fixtures.bytes(datos)
-        XCTAssertGreaterThan(b.count, 22, "Un ZIP con entradas no puede medir menos de 22 B")
+        guard b.count > 22 else {
+            XCTFail("Un ZIP con entradas no puede medir menos de 22 B y midió \(b.count) B")
+            return
+        }
         XCTAssertEqual(Array(b[0..<4]), firmaLocal,
                        "Todo ZIP debe empezar por la firma PK\\u{03}\\u{04} de cabecera local")
     }
@@ -97,8 +100,10 @@ final class ZipArchiveTests: XCTestCase {
         let tamanoDirectorio = Int(Fixtures.uint32LE(b, eocd + 12))
         let offsetDirectorio = Int(Fixtures.uint32LE(b, eocd + 16))
 
-        XCTAssertTrue(offsetDirectorio > 0 && offsetDirectorio < eocd,
-                      "El offset del directorio central (\(offsetDirectorio)) debe caer dentro del ZIP")
+        guard offsetDirectorio > 0, offsetDirectorio + 4 <= eocd else {
+            XCTFail("El offset del directorio central (\(offsetDirectorio)) debe caer dentro del ZIP")
+            return
+        }
         XCTAssertEqual(offsetDirectorio + tamanoDirectorio, eocd,
                        "El directorio central debe terminar justo donde empieza el EOCD")
         XCTAssertEqual(Array(b[offsetDirectorio..<(offsetDirectorio + 4)]), firmaCentral,
@@ -141,6 +146,10 @@ final class ZipArchiveTests: XCTestCase {
         let eocd = try XCTUnwrap(Fixtures.ultimoIndice(de: firmaEOCD, en: b),
                                  "El ZIP debe traer el registro EOCD")
         let offsetDirectorio = Int(Fixtures.uint32LE(b, eocd + 16))
+        guard offsetDirectorio >= 0, offsetDirectorio + 20 <= b.count else {
+            XCTFail("El offset del directorio central (\(offsetDirectorio)) debe caer dentro del ZIP")
+            return
+        }
         XCTAssertEqual(Fixtures.uint32LE(b, offsetDirectorio + 16), 0x6FA0_F988,
                        "El directorio central debe repetir el CRC-32 0x6FA0F988 de \"hola\"")
         XCTAssertEqual(Fixtures.uint32LE(b, offsetDirectorio + 16),
@@ -163,6 +172,10 @@ final class ZipArchiveTests: XCTestCase {
         let segunda = try XCTUnwrap(
             Fixtures.indice(de: firmaCentral, en: b, desde: offsetDirectorio + 4),
             "El directorio central debe traer la cabecera de la segunda entrada")
+        guard segunda + 20 <= b.count else {
+            XCTFail("La segunda cabecera central (\(segunda)) se sale del archivo")
+            return
+        }
         XCTAssertEqual(Fixtures.uint32LE(b, segunda + 16), Fixtures.crc32(entradas[1].datos),
                        "El CRC-32 de nube.ply debe coincidir con el calculado por la suite")
     }
@@ -178,6 +191,10 @@ final class ZipArchiveTests: XCTestCase {
 
         let longitudNombre = Int(Fixtures.uint16LE(b, 26))
         let longitudExtra = Int(Fixtures.uint16LE(b, 28))
+        guard 30 + longitudNombre <= b.count else {
+            XCTFail("La longitud de nombre declarada (\(longitudNombre)) se sale del archivo")
+            return
+        }
         XCTAssertEqual(longitudNombre, "escaneo.json".utf8.count,
                        "La cabecera local debe declarar los 12 caracteres de 'escaneo.json'")
         XCTAssertGreaterThanOrEqual(longitudExtra, 0, "La longitud del campo extra no puede ser negativa")
@@ -212,6 +229,10 @@ final class ZipArchiveTests: XCTestCase {
         let datos = try ZipArchive.crear(entradas: [(nombre: nombre, datos: Data("x".utf8))])
         let b = Fixtures.bytes(datos)
         let longitudNombre = Int(Fixtures.uint16LE(b, 26))
+        guard 30 + longitudNombre <= b.count else {
+            XCTFail("La longitud de nombre declarada (\(longitudNombre)) se sale del archivo")
+            return
+        }
         XCTAssertEqual(longitudNombre, nombre.utf8.count,
                        "La longitud declarada debe contarse en BYTES UTF-8 (\(nombre.utf8.count)), no en caracteres")
         let leido = String(decoding: b[30..<(30 + longitudNombre)], as: UTF8.self)
@@ -240,8 +261,10 @@ final class ZipArchiveTests: XCTestCase {
             return
         }
         let b = Fixtures.bytes(datos)
-        XCTAssertEqual(b.count, 22,
-                       "Un ZIP sin entradas se reduce al registro EOCD de 22 B")
+        guard b.count == 22 else {
+            XCTFail("Un ZIP sin entradas se reduce al registro EOCD de 22 B y llegaron \(b.count) B")
+            return
+        }
         XCTAssertEqual(Array(b[0..<4]), firmaEOCD,
                        "Un ZIP sin entradas empieza directamente por la firma EOCD")
         XCTAssertEqual(Fixtures.uint16LE(b, 10), 0,

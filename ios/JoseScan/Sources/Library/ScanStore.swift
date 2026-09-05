@@ -748,15 +748,16 @@ public final class ScanStore: ObservableObject {
     /// Tamaño en disco de cada escaneo, en bytes.
     private var tamanos: [UUID: Int64] = [:]
 
-    private let cacheMiniaturas: NSCache<NSString, UIImage> = {
+    private let cacheMiniaturas: NSCache<NSString, UIImage>
+
+    /// El inicializador no toca estado aislado al actor principal: puede
+    /// llamarse desde cualquier contexto (por ejemplo dentro de un
+    /// `@StateObject` o de una propiedad de la escena).
+    public nonisolated init() {
         let cache = NSCache<NSString, UIImage>()
         cache.countLimit = 120
-        return cache
-    }()
-
-    /// El inicializador no toca estado aislado: puede llamarse desde cualquier
-    /// contexto (por ejemplo dentro de un `@StateObject`).
-    public nonisolated init() {
+        self.cacheMiniaturas = cache
+        // La primera lectura del disco se agenda en el hilo principal.
         Task { @MainActor in
             self.cargar()
         }

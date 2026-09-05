@@ -38,7 +38,7 @@ Debe existir `escaneo.json` y al menos `nube.ply` o `malla.obj`.
     "horizontalAccuracy": 3.2, "verticalAccuracy": 4.0,
     "heading": 172.5, "headingAccuracy": 8.0,
     "timestamp": "2026-09-05T14:22:31Z",
-    "norte": 2067412.55, "este": 4898231.10
+    "norte": 2067459.13, "este": 4880056.02
   },
   "puntos": 812344,
   "vertices": 51233,

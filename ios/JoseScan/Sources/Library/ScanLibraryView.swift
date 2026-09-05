@@ -184,6 +184,9 @@ struct BibliotecaMiniatura: View {
         .frame(maxWidth: .infinity)
         .frame(height: alto)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .task(id: id) {
+            imagen = await store.miniaturaEnSegundoPlano(de: id)
+        }
     }
 }
 
@@ -310,13 +313,13 @@ public struct ScanLibraryView: View {
     /// Crea la galería con su propio almacén.
     public init() {
         _store = StateObject(wrappedValue: ScanStore())
-        ajustes = AppSettings.compartido
+        _ajustes = ObservedObject(wrappedValue: AppSettings.compartido)
     }
 
     /// Crea la galería sobre un almacén ya existente (el de la app).
     public init(store: ScanStore, ajustes: AppSettings = .compartido) {
         _store = StateObject(wrappedValue: store)
-        self.ajustes = ajustes
+        _ajustes = ObservedObject(wrappedValue: ajustes)
     }
 
     public var body: some View {
@@ -434,14 +437,9 @@ public struct ScanLibraryView: View {
     private var lista: some View {
         List {
             ForEach(escaneosVisibles) { meta in
-                ZStack {
-                    NavigationLink {
-                        ScanDetailView(store: store, meta: meta, ajustes: ajustes)
-                    } label: {
-                        EmptyView()
-                    }
-                    .opacity(0)
-
+                NavigationLink {
+                    ScanDetailView(store: store, meta: meta, ajustes: ajustes)
+                } label: {
                     BibliotecaFila(store: store, meta: meta)
                 }
                 .listRowBackground(JoseTheme.superficie)

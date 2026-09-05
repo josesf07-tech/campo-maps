@@ -83,19 +83,19 @@ Captura al aire libre y de estructuras, con LiDAR directo.
 
 ```
 ┌──────────────────────────────────────────────┐
-│  ● 01:12   ▣ 812.344 pts   △ 98.120 tri      │  <- métricas vivas
+│  REC 01:12   812.344 pts   98.120 tri        │  <- métricas vivas
 │                                              │
 │         [ imagen de la cámara con            │
 │           la malla superpuesta ]             │
-│                                     ╭─────╮  │
+│                                     ┌─────┐  │
 │                                     │  78 │  │  <- QualityGauge 0-100
 │                                     │Calid│  │     (rojo → ámbar → verde)
-│                                     ╰─────╯  │
+│                                     └─────┘  │
 │                                              │
 │  GPS  ±3,2 m    Rumbo 172° S     [Anclar]    │  <- estado del ancla
 │                                              │
 │  [Malla] [Puntos] [Cámara]                   │  <- ModoVisualizacion
-│         (  ⏹ Finalizar  )        [Cancelar]  │
+│         (   Finalizar   )        [Cancelar]  │
 └──────────────────────────────────────────────┘
 ```
 
@@ -136,10 +136,10 @@ en cualquier equipo, con LiDAR o sin él.
 ┌──────────────────────────────────────────────┐
 │  Escaneos                        Proyecto ▾  │
 ├──────────────────────────────────────────────┤
-│ ▨  Cárcava K12+400                           │
+│ []  Cárcava K12+400                          │
 │    05/09/2026 · 812.344 pts · 92 s · ancl.   │
 ├──────────────────────────────────────────────┤
-│ ▨  Box culvert entrada                       │
+│ []  Box culvert entrada                      │
 │    05/09/2026 · 231.008 pts · 41 s           │
 └──────────────────────────────────────────────┘
 ```

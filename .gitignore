@@ -4,3 +4,4 @@ cloudflared.exe
 *.tmp
 server.py
 generate_icons.py
+node_modules/

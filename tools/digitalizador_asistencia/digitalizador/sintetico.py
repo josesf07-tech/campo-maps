@@ -110,6 +110,35 @@ def crear_hoja(
     return imagen, verdad
 
 
+def simular_escaneo(imagen: np.ndarray, semilla: int = 3) -> np.ndarray:
+    """Degrada una hoja como lo hace un escáner de oficina.
+
+    Escala de grises, contraste bajo, ruido y un ligero desenfoque: sirve para
+    probar el realce y la detección de páginas sin depender de escaneos reales.
+    """
+    generador = np.random.default_rng(semilla)
+    gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+    gris = cv2.GaussianBlur(gris, (3, 3), 0.8)
+    gris = np.clip(gris.astype(np.float32) * 0.75 + 55, 0, 255)      # menos contraste
+    gris += generador.normal(0, 6, gris.shape)                        # grano del sensor
+    gris = np.clip(gris, 0, 255).astype(np.uint8)
+    return cv2.cvtColor(gris, cv2.COLOR_GRAY2BGR)
+
+
+def crear_pdf(ruta, paginas: int = 2, escaneado: bool = True, **kwargs):
+    """Escribe un PDF de prueba con varias hojas de asistencia."""
+    from PIL import Image  # dependencia opcional, solo para pruebas y demos
+
+    imagenes = []
+    for indice in range(paginas):
+        imagen, _ = crear_hoja(semilla=7 + indice, **kwargs)
+        if escaneado:
+            imagen = simular_escaneo(imagen, semilla=indice)
+        imagenes.append(Image.fromarray(cv2.cvtColor(imagen, cv2.COLOR_BGR2RGB)))
+    imagenes[0].save(str(ruta), save_all=True, append_images=imagenes[1:])
+    return ruta
+
+
 def _dibujar_firma(imagen, x, y, ancho, alto, generador, color) -> None:
     """Garabato manuscrito que simula una firma dentro de la celda."""
     puntos = []

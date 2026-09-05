@@ -53,11 +53,17 @@ class Registro:
     revisar: bool = False
     motivos: List[str] = field(default_factory=list)
     bbox: Optional[BBox] = None
+    relectura: bool = False      # la fila pasó por una segunda lectura
 
     def marcar_revision(self, motivo: str) -> None:
         self.revisar = True
         if motivo not in self.motivos:
             self.motivos.append(motivo)
+
+    def reiniciar_revision(self) -> None:
+        """Borra el veredicto anterior para poder revalidar la fila."""
+        self.revisar = False
+        self.motivos = []
 
     def a_dict(self) -> Dict[str, Any]:
         datos: Dict[str, Any] = {
@@ -77,6 +83,7 @@ class Registro:
         datos["confianza"] = round(self.confianza, 3)
         datos["revisar"] = self.revisar
         datos["motivos"] = "; ".join(self.motivos)
+        datos["relectura"] = self.relectura
         return datos
 
 

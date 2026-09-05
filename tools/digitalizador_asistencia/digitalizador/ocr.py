@@ -58,6 +58,27 @@ def a_png_base64(imagen: np.ndarray) -> str:
     return base64.standard_b64encode(buffer.tobytes()).decode("ascii")
 
 
+def codificar_imagen(imagen: np.ndarray, bytes_maximos: int = 4_500_000):
+    """Codifica la imagen para la API respetando el límite de tamaño.
+
+    Un escaneo a 300 ppp puede superar el máximo por imagen de la API; si el
+    PNG se pasa, se recodifica en JPEG bajando la calidad, y solo como último
+    recurso se reduce la resolución (que es lo que perjudica a la lectura).
+    """
+    correcto, buffer = cv2.imencode(".png", imagen)
+    if correcto and buffer.nbytes <= bytes_maximos:
+        return "image/png", base64.standard_b64encode(buffer.tobytes()).decode("ascii")
+
+    trabajo = imagen
+    for _ in range(4):
+        for calidad in (92, 85, 75):
+            correcto, buffer = cv2.imencode(".jpg", trabajo, [cv2.IMWRITE_JPEG_QUALITY, calidad])
+            if correcto and buffer.nbytes <= bytes_maximos:
+                return "image/jpeg", base64.standard_b64encode(buffer.tobytes()).decode("ascii")
+        trabajo = cv2.resize(trabajo, None, fx=0.8, fy=0.8, interpolation=cv2.INTER_AREA)
+    raise ValueError("No se pudo reducir la imagen por debajo del límite de la API")
+
+
 def extraer_json(texto: str) -> Any:
     """Extrae el primer objeto o array JSON de una respuesta de texto."""
     limpio = re.sub(r"^\s*```(?:json)?|```\s*$", "", texto.strip(), flags=re.MULTILINE)
@@ -83,14 +104,21 @@ class MotorOCR(ABC):
     nombre = "base"
     #: si es True, el pipeline no segmenta celdas y usa `transcribir_hoja`
     hoja_completa = False
+    #: si es True, el motor puede releer las filas dudosas con más contexto
+    soporta_relectura = False
 
     @abstractmethod
     def reconocer(self, recortes: Sequence[np.ndarray], tipo: str = TIPO_TEXTO) -> List[Campo]:
         """Transcribe una lista de recortes del mismo tipo de campo."""
 
     def transcribir_hoja(  # pragma: no cover - solo motores de hoja completa
-        self, imagen: np.ndarray, cfg: Config
+        self, imagen: np.ndarray, cfg: Config, padron: Sequence[str] = ()
     ) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    def releer(  # pragma: no cover - solo motores con relectura
+        self, imagen: np.ndarray, dudas: Sequence[Dict[str, Any]], cfg: Config
+    ) -> Dict[int, Dict[str, Any]]:
         raise NotImplementedError
 
 
@@ -238,14 +266,27 @@ SISTEMA_CELDAS = (
 )
 
 SISTEMA_HOJA = (
-    "Eres un transcriptor experto de listados de asistencia manuscritos en español. "
-    "Recibes la foto de una hoja de asistencia y devuelves su contenido como tabla estructurada. "
-    "Reglas: transcribe literalmente lo escrito, sin inventar ni completar datos; "
-    "una fila de salida por cada fila escrita de la hoja, en el mismo orden; "
+    "Eres un transcriptor experto de listados de asistencia manuscritos en español, "
+    "acostumbrado a escaneos de mala calidad y a letra descuidada. "
+    "Recibes la imagen de una hoja de asistencia y devuelves su contenido como tabla "
+    "estructurada. Reglas: transcribe literalmente lo escrito, sin inventar ni completar "
+    "datos; una fila de salida por cada fila escrita de la hoja, en el mismo orden; "
     "las filas totalmente vacías se omiten; respeta tildes, Ñ y nombres compuestos; "
     "para las columnas de firma o asistencia indica 'presente' si hay una marca, aspa, "
     "palomita o firma, 'ausente' si la celda está claramente vacía y 'dudoso' si no puedes "
-    "decidirlo. Responde únicamente con JSON."
+    "decidirlo. Cuando la letra sea mala, transcribe tu mejor lectura y baja la confianza "
+    "en lugar de dejarla en blanco; si es completamente ilegible, deja el texto vacío con "
+    "confianza 0. Responde únicamente con JSON."
+)
+
+SISTEMA_RELECTURA = (
+    "Eres un transcriptor experto de listados de asistencia manuscritos en español. "
+    "Recibes una hoja ya transcrita y la lista de filas cuya lectura quedó dudosa. "
+    "Vuelve a mirar solo esas filas con atención, apoyándote en el resto de la hoja "
+    "(estilo de letra de la misma persona, columnas contiguas, numeración) y en los "
+    "candidatos del padrón que se te ofrecen. Elige un candidato solo si de verdad "
+    "coincide con los trazos; si no, mantén la lectura literal o deja el texto vacío. "
+    "Nunca inventes un nombre. Responde únicamente con JSON."
 )
 
 
@@ -281,14 +322,11 @@ class _ClienteClaude:
         return "".join(bloque.text for bloque in respuesta.content if bloque.type == "text")
 
 
-def _bloque_imagen(imagen: np.ndarray) -> Dict[str, Any]:
+def _bloque_imagen(imagen: np.ndarray, bytes_maximos: int = 4_500_000) -> Dict[str, Any]:
+    tipo, datos = codificar_imagen(imagen, bytes_maximos)
     return {
         "type": "image",
-        "source": {
-            "type": "base64",
-            "media_type": "image/png",
-            "data": a_png_base64(imagen),
-        },
+        "source": {"type": "base64", "media_type": tipo, "data": datos},
     }
 
 
@@ -340,6 +378,72 @@ class MotorClaude(MotorOCR):
             )
         return campos
 
+    def _preguntar_json(self, sistema: str, contenido: List[Dict[str, Any]]) -> Any:
+        """Pregunta y parsea JSON, con un reintento más estricto si falla."""
+        crudo = self.cliente.preguntar(sistema, contenido)
+        try:
+            return extraer_json(crudo)
+        except ValueError:
+            insistencia = list(contenido) + [
+                {
+                    "type": "text",
+                    "text": "Tu respuesta anterior no era JSON válido. "
+                            "Devuelve únicamente el JSON pedido, sin texto alrededor.",
+                }
+            ]
+            return extraer_json(self.cliente.preguntar(sistema, insistencia))
+
+    # -- segunda lectura de las filas dudosas ---------------------------
+    soporta_relectura = True
+
+    def releer(
+        self, imagen: np.ndarray, dudas: Sequence[Dict[str, Any]], cfg: Config
+    ) -> Dict[int, Dict[str, Any]]:
+        """Relee las filas dudosas sobre la misma hoja y devuelve {fila: lectura}."""
+        if not dudas:
+            return {}
+        contenido: List[Dict[str, Any]] = [
+            _bloque_imagen(imagen, cfg.bytes_maximos_imagen),
+            {"type": "text", "text": self._instruccion_relectura(dudas)},
+        ]
+        datos = self._preguntar_json(SISTEMA_RELECTURA, contenido)
+        elementos = datos if isinstance(datos, list) else datos.get("filas", [])
+        lecturas: Dict[int, Dict[str, Any]] = {}
+        for elemento in elementos:
+            if not isinstance(elemento, dict) or "fila" not in elemento:
+                continue
+            try:
+                lecturas[int(elemento["fila"])] = elemento
+            except (TypeError, ValueError):
+                continue
+        return lecturas
+
+    def _instruccion_relectura(self, dudas: Sequence[Dict[str, Any]]) -> str:
+        lineas = ["Estas son las filas dudosas de la hoja:"]
+        for duda in dudas:
+            detalle = (
+                f"- fila {duda['fila']}"
+                + (f" (nº {duda['numero']} escrito en la hoja)" if duda.get("numero") else "")
+                + f": se leyó \"{duda.get('lectura', '')}\""
+                + (f", documento \"{duda['documento']}\"" if duda.get("documento") else "")
+                + f". Motivo de la duda: {duda.get('motivo', 'lectura poco fiable')}."
+            )
+            candidatos = duda.get("candidatos") or []
+            if candidatos:
+                detalle += " Candidatos del padrón: " + "; ".join(candidatos) + "."
+            lineas.append(detalle)
+        lineas.append(
+            "Vuelve a leer esas filas concretas en la imagen y responde con este JSON:\n"
+            '{"filas": [{"fila": 1, "nombre": "...", "documento": "...", '
+            '"asistencia": {"etiqueta": "presente|ausente|dudoso"}, '
+            '"confianza": 0.0, "candidato_padron": false, "ilegible": false}]}\n'
+            "Incluye una entrada por cada fila dudosa, conservando su número de fila. "
+            "Pon 'candidato_padron' en true solo si eliges uno de los candidatos ofrecidos. "
+            "Si sigue siendo ilegible, deja el nombre como lo leíste, marca 'ilegible' "
+            "en true y usa confianza 0. No añadas texto fuera del JSON."
+        )
+        return "\n".join(lineas)
+
     def _instruccion(self, tipo: str, cantidad: int) -> str:
         detalle = {
             TIPO_NOMBRE: "Cada celda contiene el nombre y apellidos de una persona.",
@@ -360,13 +464,14 @@ class MotorClaudeHoja(MotorClaude):
     nombre = "claude-hoja"
     hoja_completa = True
 
-    def transcribir_hoja(self, imagen: np.ndarray, cfg: Config) -> Dict[str, Any]:
+    def transcribir_hoja(
+        self, imagen: np.ndarray, cfg: Config, padron: Sequence[str] = ()
+    ) -> Dict[str, Any]:
         contenido: List[Dict[str, Any]] = [
-            _bloque_imagen(imagen),
-            {"type": "text", "text": self._instruccion_hoja(cfg)},
+            _bloque_imagen(imagen, cfg.bytes_maximos_imagen),
+            {"type": "text", "text": self._instruccion_hoja(cfg, padron)},
         ]
-        crudo = self.cliente.preguntar(SISTEMA_HOJA, contenido)
-        datos = extraer_json(crudo)
+        datos = self._preguntar_json(SISTEMA_HOJA, contenido)
         if isinstance(datos, list):
             datos = {"columnas": [], "filas": datos}
         if not isinstance(datos, dict):
@@ -375,17 +480,14 @@ class MotorClaudeHoja(MotorClaude):
         datos.setdefault("filas", [])
         return datos
 
-    def _instruccion_hoja(self, cfg: Config) -> str:
+    def _instruccion_hoja(self, cfg: Config, padron: Sequence[str] = ()) -> str:
         pista = ""
         if cfg.columnas:
-            pista = (
-                "Las columnas de la hoja, en orden, son: "
-                + ", ".join(cfg.columnas)
-                + ". "
-            )
+            pista = "Las columnas de la hoja, en orden, son: " + ", ".join(cfg.columnas) + ". "
         return (
             "Transcribe esta hoja de asistencia completa. "
             + pista
+            + _contexto_padron(padron, cfg)
             + "Responde con este JSON exacto:\n"
             '{"columnas": [{"etiqueta": "texto del encabezado", '
             '"rol": "numero|nombre|documento|cargo|contacto|firma|asistencia|ignorar"}], '
@@ -397,6 +499,21 @@ class MotorClaudeHoja(MotorClaude):
             "declaraste en 'columnas'. Incluye 'confianza' (0 a 1) por fila según lo "
             "legible que sea el nombre. No añadas texto fuera del JSON."
         )
+
+
+def _contexto_padron(padron: Sequence[str], cfg: Config) -> str:
+    """Lista de nombres esperados que se envía junto con la hoja."""
+    nombres = [n for n in padron if n][: cfg.padron_en_contexto]
+    if not nombres:
+        return ""
+    return (
+        "Estas personas figuran en el padrón y es probable que sean las que aparecen "
+        "en la hoja: " + "; ".join(nombres) + ". "
+        "Úsalas solo como referencia de grafía: si lo escrito coincide claramente con "
+        "una de ellas, escríbela igual que en el padrón; si no coincide, transcribe lo "
+        "que ves. Nunca sustituyas un nombre por otro parecido de la lista sin que los "
+        "trazos lo respalden, y nunca añadas filas que no estén en la hoja. "
+    )
 
 
 def _confianza(valor: Any) -> float:

@@ -55,8 +55,17 @@ def construir_parser() -> argparse.ArgumentParser:
         help="si la primera fila es un encabezado impreso",
     )
     parser.add_argument("--config", default=None, help="JSON con ajustes adicionales")
-    parser.add_argument("--dpi", type=int, default=None, help="resolución al rasterizar PDF")
+    parser.add_argument("--dpi", type=int, default=None,
+                        help="resolución al rasterizar PDF (sube a 400 si la letra es pequeña)")
+    parser.add_argument("--paginas", default=None,
+                        help="páginas del PDF a procesar, p.ej. 1-3,7 (vacío = todas)")
     parser.add_argument("--max-paginas", type=int, default=None, help="límite de páginas (0 = todas)")
+    parser.add_argument("--rotacion", default=None, choices=["auto", "0", "90", "180", "270"],
+                        help="giro de la página; auto detecta escaneos de lado o del revés")
+    parser.add_argument("--imagen-modelo", default=None, choices=["auto", "color", "realzada"],
+                        help="qué versión de la página ve el modelo de visión")
+    parser.add_argument("--sin-segunda-opinion", action="store_true",
+                        help="no releer las filas dudosas (ahorra una petición por página)")
     parser.add_argument(
         "--umbral-confianza", type=float, default=None,
         help="por debajo de este valor la fila se marca para revisión",
@@ -82,6 +91,14 @@ def construir_config(argumentos: argparse.Namespace) -> Config:
         cfg.fila_encabezado = argumentos.encabezado
     if argumentos.dpi:
         cfg.dpi_pdf = argumentos.dpi
+    if argumentos.paginas is not None:
+        cfg.paginas = argumentos.paginas
+    if argumentos.rotacion:
+        cfg.rotacion = argumentos.rotacion
+    if argumentos.imagen_modelo:
+        cfg.imagen_modelo = argumentos.imagen_modelo
+    if argumentos.sin_segunda_opinion:
+        cfg.segunda_opinion = False
     if argumentos.max_paginas is not None:
         cfg.max_paginas = argumentos.max_paginas
     if argumentos.umbral_confianza is not None:

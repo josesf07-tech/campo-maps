@@ -1,6 +1,7 @@
 # Núcleo (obligatorio)
 numpy>=1.24
 opencv-python-headless>=4.8
+pypdfium2>=4.0          # lectura de PDF escaneados (alternativa: pymupdf)
 
 # --- Opcionales, según lo que uses -----------------------------------------
 # Motor por defecto (claude-hoja / claude): API de visión de Claude
@@ -20,9 +21,6 @@ opencv-python-headless>=4.8
 # Salida a Excel
 # openpyxl>=3.1
 
-# Lectura de PDF (uno de los dos)
-# pypdfium2>=4.0
-# pymupdf>=1.24
-
-# Pruebas
+# Pruebas (pillow genera los PDF sintéticos)
 # pytest>=7.0
+# pillow>=10.0

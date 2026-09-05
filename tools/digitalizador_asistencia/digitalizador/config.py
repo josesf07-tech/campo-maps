@@ -55,13 +55,20 @@ class Config:
 
     # --- Entrada / imagen ---
     dpi_pdf: int = 300
+    paginas: str = ""                   # selección tipo "1-3,7" (vacío = todas)
     ancho_objetivo: int = 2200          # se reescala la página a este ancho
     ancho_minimo: int = 1200
     recortar_documento: bool = True     # corregir perspectiva de fotos de móvil
     enderezar: bool = True
     angulo_maximo: float = 15.0
+    corregir_rotacion: bool = True      # escaneos de lado o del revés
+    rotacion: str = "auto"              # auto | 0 | 90 | 180 | 270
+    margen_orientacion: float = 0.004   # señal mínima para arriesgar un giro de 180°
+    umbral_pagina_blanco: float = 0.0015
     bloque_umbral: int = 41             # blockSize del umbral adaptativo (impar)
     constante_umbral: int = 15
+    imagen_modelo: str = "auto"         # auto | color | realzada
+    bytes_maximos_imagen: int = 4_500_000
 
     # --- Detección de la tabla ---
     cobertura_linea_h: float = 0.35     # fracción del ancho que debe cubrir una línea
@@ -86,6 +93,12 @@ class Config:
     idioma_tesseract: str = "spa"
     modelo_trocr: str = "microsoft/trocr-base-handwritten"
 
+    # --- Segunda lectura de las filas dudosas ---
+    segunda_opinion: bool = True        # relee las filas marcadas con más contexto
+    max_filas_segunda_opinion: int = 25
+    candidatos_padron: int = 6          # cuántos nombres del padrón se ofrecen por fila
+    padron_en_contexto: int = 250       # nombres del padrón que se envían con la hoja
+
     # --- Post-proceso ---
     umbral_confianza: float = 0.60      # por debajo, la fila se marca para revisión
     umbral_padron_auto: float = 0.90    # corrige el nombre automáticamente
@@ -105,6 +118,13 @@ class Config:
     def __post_init__(self) -> None:
         if self.bloque_umbral % 2 == 0:
             self.bloque_umbral += 1
+        self.rotacion = str(self.rotacion).strip().lower()
+        if self.rotacion not in {"auto", "0", "90", "180", "270"}:
+            raise ValueError("rotacion debe ser auto, 0, 90, 180 o 270")
+        if self.imagen_modelo not in {"auto", "color", "realzada"}:
+            raise ValueError("imagen_modelo debe ser auto, color o realzada")
+        if self.fila_encabezado not in {"auto", "si", "no"}:
+            raise ValueError("fila_encabezado debe ser auto, si o no")
         if self.umbral_marca_alto <= self.umbral_marca_bajo:
             raise ValueError("umbral_marca_alto debe ser mayor que umbral_marca_bajo")
         if self.umbral_padron_auto < self.umbral_padron_sugerencia:

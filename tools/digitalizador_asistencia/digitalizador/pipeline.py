@@ -40,6 +40,7 @@ from .ocr import (
     crear_motor,
 )
 from .preprocesado import Pagina, cargar_paginas, preparar, recortar
+from .revision import aplicar_segunda_opinion
 from .tabla import Rejilla, detectar_fila_encabezado, detectar_rejilla, inferir_roles, nombre_columna
 
 TIPO_POR_ROL = {
@@ -60,18 +61,27 @@ def procesar_archivo(
     padron: Optional[Sequence[EntradaPadron]] = None,
     motor: Optional[MotorOCR] = None,
 ) -> List[Hoja]:
-    """Digitaliza todas las páginas de una imagen o PDF."""
+    """Digitaliza todas las páginas de una imagen o PDF.
+
+    Un PDF escaneado trae páginas de calidad desigual: si una falla, se anota
+    el error en esa hoja y se sigue con el resto en lugar de perder el lote.
+    """
     cfg = cfg or Config()
     motor = motor or crear_motor(cfg)
     ruta = Path(ruta)
 
-    paginas = cargar_paginas(ruta, cfg.dpi_pdf)
+    paginas = cargar_paginas(ruta, cfg.dpi_pdf, cfg.paginas)
     if cfg.max_paginas:
         paginas = paginas[: cfg.max_paginas]
 
     hojas: List[Hoja] = []
-    for numero, imagen in enumerate(paginas, start=1):
-        hojas.append(procesar_imagen(imagen, cfg, padron, motor, ruta.name, numero))
+    for numero, imagen in paginas:
+        try:
+            hojas.append(procesar_imagen(imagen, cfg, padron, motor, ruta.name, numero))
+        except Exception as error:  # noqa: BLE001 - una página mala no tumba el PDF
+            hoja = Hoja(origen=ruta.name, pagina=numero)
+            hoja.metadatos["error"] = f"{type(error).__name__}: {error}"
+            hojas.append(hoja)
     return hojas
 
 
@@ -85,8 +95,14 @@ def procesar_imagen(
 ) -> Hoja:
     """Digitaliza una única página ya cargada en memoria."""
     pagina = preparar(imagen, cfg)
-    if motor.hoja_completa:
-        hoja = _hoja_desde_modelo(pagina, cfg, motor, origen, numero_pagina)
+    padron = list(padron or [])
+
+    if pagina.en_blanco:
+        # Ni una petición a la API ni un falso positivo: la página está vacía.
+        hoja = Hoja(origen=origen, pagina=numero_pagina)
+        hoja.metadatos["aviso"] = "Página en blanco: se omite"
+    elif motor.hoja_completa:
+        hoja = _hoja_desde_modelo(pagina, cfg, motor, padron, origen, numero_pagina)
     else:
         hoja = _hoja_desde_rejilla(pagina, cfg, motor, origen, numero_pagina)
 
@@ -94,12 +110,20 @@ def procesar_imagen(
         {
             "motor": motor.nombre,
             "angulo_corregido": round(pagina.angulo, 2),
+            "rotacion_corregida": pagina.rotacion,
             "perspectiva_corregida": pagina.recortada,
             "escala": round(pagina.escala, 3),
+            "tinta": round(pagina.tinta, 5),
             "tamano": [int(pagina.color.shape[1]), int(pagina.color.shape[0])],
         }
     )
     validar(hoja, cfg, padron)
+
+    if cfg.segunda_opinion and motor.soporta_relectura and hoja.a_revisar:
+        resumen = aplicar_segunda_opinion(hoja, pagina.modelo, cfg, motor, padron)
+        if resumen.get("consultadas"):
+            hoja.metadatos["segunda_opinion"] = resumen
+            validar(hoja, cfg, padron)
 
     if cfg.directorio_depuracion:
         tallo = Path(origen or "hoja").stem or "hoja"
@@ -232,10 +256,12 @@ def _hoja_desde_modelo(
     pagina: Pagina,
     cfg: Config,
     motor: MotorOCR,
+    padron: Sequence[EntradaPadron],
     origen: str,
     numero_pagina: int,
 ) -> Hoja:
-    datos = motor.transcribir_hoja(pagina.color, cfg)
+    nombres = [entrada.nombre for entrada in padron]
+    datos = motor.transcribir_hoja(pagina.modelo, cfg, nombres)
     hoja = Hoja(origen=origen, pagina=numero_pagina)
 
     columnas_modelo = [c for c in datos.get("columnas", []) if isinstance(c, dict)]
@@ -320,6 +346,7 @@ def validar(hoja: Hoja, cfg: Config, padron: Optional[Sequence[EntradaPadron]]) 
     padron = list(padron or [])
 
     for registro in hoja.registros:
+        registro.reiniciar_revision()
         crudo = registro.nombre.texto
         registro.nombre.texto_crudo = registro.nombre.texto_crudo or crudo
         registro.nombre.texto = normalizar_nombre(crudo, cfg.formato_nombre)

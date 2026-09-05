@@ -115,23 +115,40 @@ def exportar_xlsx(hojas: Sequence[Hoja], destino: Path | str) -> Path:
 def informe(hojas: Sequence[Hoja]) -> str:
     """Informe de texto con el resumen y las filas que hay que revisar."""
     lineas: List[str] = ["=== Digitalización de listados de asistencia ==="]
-    total = revisar = 0
+    total = revisar = relecturas = con_error = 0
     for hoja in hojas:
         resumen = hoja.resumen()
         total += resumen["filas"]
         revisar += resumen["a_revisar"]
+        relecturas += sum(1 for registro in hoja.registros if registro.relectura)
         lineas.append(
             f"\n{resumen['origen']} (página {resumen['pagina']}): "
             f"{resumen['filas']} filas, {resumen['presentes']} presentes, "
             f"{resumen['ausentes']} ausentes, {resumen['marcas_dudosas']} marcas dudosas"
         )
+        if hoja.metadatos.get("error"):
+            con_error += 1
+            lineas.append(f"  ERROR: {hoja.metadatos['error']}")
         if hoja.metadatos.get("aviso"):
             lineas.append(f"  aviso: {hoja.metadatos['aviso']}")
+        if hoja.metadatos.get("rotacion_corregida"):
+            lineas.append(f"  se giró la página {hoja.metadatos['rotacion_corregida']}°")
+        segunda = hoja.metadatos.get("segunda_opinion")
+        if segunda:
+            lineas.append(
+                f"  segunda lectura: {segunda.get('consultadas', 0)} filas releídas, "
+                f"{segunda.get('actualizadas', 0)} corregidas, "
+                f"{segunda.get('ilegibles', 0)} siguen ilegibles"
+            )
         for registro in hoja.a_revisar:
             nombre = registro.nombre.texto or "(sin nombre)"
             lineas.append(f"  · fila {registro.fila}: {nombre} — {'; '.join(registro.motivos)}")
 
     lineas.append(f"\nTotal: {total} filas, {revisar} requieren revisión manual.")
+    if relecturas:
+        lineas.append(f"Filas mejoradas en la segunda lectura: {relecturas}.")
+    if con_error:
+        lineas.append(f"Páginas con error: {con_error} (ver el detalle arriba).")
     if total:
         lineas.append(f"Fiabilidad automática: {(total - revisar) / total:.0%} de las filas.")
     return "\n".join(lineas)
